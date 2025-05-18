@@ -23,6 +23,8 @@ use crate::validated::nonstandard::*;
 use crate::validated::pattern::*;
 use crate::validated::shortname::*;
 
+use super::api::AllKeywords;
+
 use chrono::Timelike;
 use itertools::Itertools;
 use nalgebra::DMatrix;
@@ -275,14 +277,22 @@ pub(crate) use match_anycoretext;
 impl AnyCoreTEXT {
     pub(crate) fn parse_raw(
         version: Version,
-        kws: &mut RawKeywords,
+        kws: AllKeywords,
         conf: &StdTextReadConfig,
-    ) -> PureResult<Self> {
+    ) -> PureResult<(Self, StdKeywords)> {
         match version {
-            Version::FCS2_0 => CoreTEXT2_0::new_from_raw(kws, conf).map(|x| x.map(|y| y.into())),
-            Version::FCS3_0 => CoreTEXT3_0::new_from_raw(kws, conf).map(|x| x.map(|y| y.into())),
-            Version::FCS3_1 => CoreTEXT3_1::new_from_raw(kws, conf).map(|x| x.map(|y| y.into())),
-            Version::FCS3_2 => CoreTEXT3_2::new_from_raw(kws, conf).map(|x| x.map(|y| y.into())),
+            Version::FCS2_0 => {
+                CoreTEXT2_0::new_from_raw(kws, conf).map(|x| x.map(|(y, kws)| (y.into(), kws)))
+            }
+            Version::FCS3_0 => {
+                CoreTEXT3_0::new_from_raw(kws, conf).map(|x| x.map(|(y, kws)| (y.into(), kws)))
+            }
+            Version::FCS3_1 => {
+                CoreTEXT3_1::new_from_raw(kws, conf).map(|x| x.map(|(y, kws)| (y.into(), kws)))
+            }
+            Version::FCS3_2 => {
+                CoreTEXT3_2::new_from_raw(kws, conf).map(|x| x.map(|(y, kws)| (y.into(), kws)))
+            }
         }
     }
 
@@ -319,7 +329,7 @@ impl AnyCoreTEXT {
 
     pub(crate) fn as_data_reader(
         &self,
-        kws: &mut RawKeywords,
+        kws: &mut StdKeywords,
         conf: &DataReadConfig,
         data_seg: Segment,
     ) -> PureMaybe<DataReader> {
@@ -841,13 +851,13 @@ impl CommonMeasurement {
         }
     }
 
-    fn lookup(st: &mut KwParser, i: MeasIdx) -> Option<Self> {
+    fn lookup(st: &mut KwParser, i: MeasIdx, nonstd: NonStdKeywords) -> Option<Self> {
         if let (Some(width), Some(range)) = (st.lookup_meas_req(i), st.lookup_meas_req(i)) {
             Some(Self {
                 width,
                 range,
                 longname: st.lookup_meas_opt(i, false),
-                nonstandard_keywords: st.lookup_all_meas_nonstandard(i),
+                nonstandard_keywords: nonstd,
             })
         } else {
             None
@@ -874,13 +884,14 @@ where
         }
     }
 
-    fn lookup_temporal(st: &mut KwParser, i: MeasIdx) -> Option<Self>
+    fn lookup_temporal(st: &mut KwParser, i: MeasIdx, nonstd: NonStdKeywords) -> Option<Self>
     where
         T: LookupTemporal,
     {
-        if let (Some(common), Some(specific)) =
-            (CommonMeasurement::lookup(st, i), T::lookup_specific(st, i))
-        {
+        if let (Some(common), Some(specific)) = (
+            CommonMeasurement::lookup(st, i, nonstd),
+            T::lookup_specific(st, i),
+        ) {
             Some(Temporal { common, specific })
         } else {
             None
@@ -958,14 +969,15 @@ where
             })
     }
 
-    fn lookup_optical(st: &mut KwParser, i: MeasIdx) -> Option<Self>
+    fn lookup_optical(st: &mut KwParser, i: MeasIdx, nonstd: NonStdKeywords) -> Option<Self>
     where
         P: LookupOptical,
     {
         let v = P::fcs_version();
-        if let (Some(common), Some(specific)) =
-            (CommonMeasurement::lookup(st, i), P::lookup_specific(st, i))
-        {
+        if let (Some(common), Some(specific)) = (
+            CommonMeasurement::lookup(st, i, nonstd),
+            P::lookup_specific(st, i),
+        ) {
             Some(Optical {
                 common,
                 filter: st.lookup_meas_opt(i, false),
@@ -1127,7 +1139,11 @@ where
             })
     }
 
-    fn lookup_metadata(st: &mut KwParser, ms: &Measurements<M::N, M::T, M::P>) -> Option<Self>
+    fn lookup_metadata(
+        st: &mut KwParser,
+        ms: &Measurements<M::N, M::T, M::P>,
+        nonstd: NonStdKeywords,
+    ) -> Option<Self>
     where
         M: LookupMetadata,
     {
@@ -1149,7 +1165,7 @@ where
                 src: st.lookup_meta_opt(false),
                 sys: st.lookup_meta_opt(false),
                 tr: st.lookup_meta_opt(false),
-                nonstandard_keywords: st.lookup_all_nonstandard(),
+                nonstandard_keywords: nonstd.into_iter().collect(),
                 specific,
             })
     }
@@ -2190,7 +2206,8 @@ where
         par: Par,
         pat: Option<&TimePattern>,
         prefix: &ShortnamePrefix,
-    ) -> Option<Measurements<M::N, M::T, M::P>>
+        mut nonstd: NonStdKeywords,
+    ) -> Option<(Measurements<M::N, M::T, M::P>, NonStdKeywords)>
     where
         M: LookupMetadata,
         M::T: LookupTemporal,
@@ -2208,15 +2225,29 @@ where
                     }
                     Err(M::N::into_wrapped(name))
                 });
+                let mut this_nonstd = HashMap::new();
+                if let Some(p) = &st.conf.nonstandard_measurement_pattern {
+                    match p.from_index(i) {
+                        Ok(pattern) => nonstd.retain(|k, v| {
+                            if let Some(nk) = pattern.try_match(k.as_ref()) {
+                                this_nonstd.insert(nk, v.clone());
+                                false
+                            } else {
+                                true
+                            }
+                        }),
+                        Err(err) => st.push_warning(err.to_string()),
+                    }
+                }
                 // TODO this will make cryptic errors if the time pattern
                 // happens to match more than one measurement
                 let res = match key {
                     Ok(name) => {
-                        let t = Temporal::lookup_temporal(st, i)?;
+                        let t = Temporal::lookup_temporal(st, i, this_nonstd)?;
                         Element::Center((name, t))
                     }
                     Err(k) => {
-                        let m = Optical::lookup_optical(st, i)?;
+                        let m = Optical::lookup_optical(st, i, this_nonstd)?;
                         Element::NonCenter((k, m))
                     }
                 };
@@ -2229,7 +2260,7 @@ where
                     st.push_error(e);
                     None
                 },
-                Some,
+                |ms| Some((ms, nonstd)),
             )
         } else {
             // ASSUME errors were capture elsewhere
@@ -2334,7 +2365,7 @@ where
 
     pub(crate) fn as_data_reader(
         &self,
-        kws: &mut RawKeywords,
+        kws: &mut StdKeywords,
         _: &DataReadConfig,
         data_seg: Segment,
     ) -> PureMaybe<DataReader> {
@@ -2360,21 +2391,26 @@ where
     ///
     /// Return any errors encountered, including messing required keywords,
     /// parse errors, and/or deprecation warnings.
-    pub(crate) fn new_from_raw(kws: &mut RawKeywords, conf: &StdTextReadConfig) -> PureResult<Self>
+    pub(crate) fn new_from_raw(
+        mut kws: AllKeywords,
+        conf: &StdTextReadConfig,
+    ) -> PureResult<(Self, StdKeywords)>
     where
         M: LookupMetadata,
         M::T: LookupTemporal,
         M::P: LookupOptical,
     {
         // Lookup $PAR first since we need this to get the measurements
-        let par = Failure::from_result(Par::remove_meta_req(kws))?;
+        let par = Failure::from_result(Par::remove_meta_req(&mut kws.std))?;
         let md_fail = "could not standardize TEXT".to_string();
         let tp = conf.time.pattern.as_ref();
-        let md_succ = KwParser::try_run(kws, conf, md_fail, |st| {
+        let md_succ = KwParser::try_run(&mut kws.std, conf, md_fail, |st| {
             // Lookup measurement keywords, return Some if no errors encountered
-            if let Some(ms) = Self::lookup_measurements(st, par, tp, &conf.shortname_prefix) {
+            if let Some((ms, rem)) =
+                Self::lookup_measurements(st, par, tp, &conf.shortname_prefix, kws.nonstd)
+            {
                 // Lookup non-measurement keywords, build struct if this works
-                Metadata::lookup_metadata(st, &ms)
+                Metadata::lookup_metadata(st, &ms, rem)
                     .map(|metadata| CoreTEXT::new_unchecked(metadata, ms))
             } else {
                 None
@@ -2385,7 +2421,7 @@ where
         //
         // TODO error handling here is confusing, since we are returning a result
         // that might have errors in the Ok var
-        Ok(md_succ.and_then(|core| core.validate(&conf.time).map(|_| core)))
+        Ok(md_succ.and_then(|core| core.validate(&conf.time).map(|_| (core, kws.std))))
     }
 
     /// Remove a measurement matching the given name.

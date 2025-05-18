@@ -29,7 +29,7 @@ pub fn print_parsed_data(s: &mut api::StandardizedDataset, _delim: &str) {
         print!("\t{n}");
     }
     for r in 0..nrows {
-        print!("\n");
+        println!();
         print!("{}", cols[0].pos_to_string(r));
         for c in 1..ncols {
             print!("\t{}", cols[c].pos_to_string(r));
@@ -281,7 +281,7 @@ fn main() -> io::Result<()> {
             let delim = sargs.get_one::<String>("delimiter").unwrap();
 
             let mut res = handle_result(api::read_fcs_file(filepath, &conf))?;
-            print_parsed_data(&mut res, delim);
+            // print_parsed_data(&mut res, delim);
         }
 
         _ => (),

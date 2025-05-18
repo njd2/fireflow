@@ -19,11 +19,47 @@ use chrono::NaiveTime;
 use itertools::Itertools;
 use nonempty::NonEmpty;
 use serde::Serialize;
+use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
 use std::convert::Infallible;
 use std::fmt;
 use std::num::{ParseFloatError, ParseIntError};
-use std::str::FromStr;
+use std::str::{from_utf8, FromStr};
+
+// TODO validate
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct StdKey(pub Vec<u8>);
+
+impl Serialize for StdKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let s = self.to_string();
+        serializer.collect_str(s.as_str())
+    }
+}
+
+pub(crate) type StdKeywords = HashMap<StdKey, String>;
+
+impl fmt::Display for StdKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        // TODO use unchecked here
+        write!(f, "${}", from_utf8(&self.0[..]).unwrap())
+    }
+}
+
+impl Borrow<[u8]> for StdKey {
+    fn borrow(&self) -> &[u8] {
+        self.0.borrow()
+    }
+}
+
+impl AsRef<[u8]> for StdKey {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
 
 /// The value of the $PnG keyword
 #[derive(Clone, Copy, Serialize, PartialEq)]
@@ -752,8 +788,8 @@ newtype_fromstr!(DetectorVoltage, RangedFloatError);
 pub(crate) trait Key {
     const C: &'static str;
 
-    fn std() -> String {
-        format!("${}", Self::C)
+    fn std() -> StdKey {
+        StdKey(Self::C.as_bytes().to_vec())
     }
 
     // fn nonstd() -> NonStdKey {
@@ -765,25 +801,33 @@ pub(crate) trait IndexedKey {
     const PREFIX: &'static str;
     const SUFFIX: &'static str;
 
-    fn fmt(i: MeasIdx) -> String {
-        format!("{}{i}{}", Self::PREFIX, Self::SUFFIX)
+    fn std(i: MeasIdx) -> StdKey {
+        StdKey(
+            Self::PREFIX
+                .as_bytes()
+                .iter()
+                .chain(i.to_string().as_bytes())
+                .chain(Self::SUFFIX.as_bytes())
+                .copied()
+                .collect(),
+        )
     }
 
-    fn fmt_blank() -> String {
-        format!("{}n{}", Self::PREFIX, Self::SUFFIX)
+    fn blank() -> String {
+        format!("${}n{}", Self::PREFIX, Self::SUFFIX)
     }
 
     // fn fmt_sub() -> String {
     //     format!("{}%n{}", Self::PREFIX, Self::SUFFIX)
     // }
 
-    fn std(i: MeasIdx) -> String {
-        format!("${}", Self::fmt(i))
-    }
+    // fn std(i: MeasIdx) -> String {
+    //     format!("${}", Self::fmt(i))
+    // }
 
-    fn std_blank() -> String {
-        format!("${}", Self::fmt_blank())
-    }
+    // fn std_blank() -> String {
+    //     format!("${}", Self::fmt_blank())
+    // }
 
     // fn nonstd(i: MeasIdx) -> NonStdKey {
     //     NonStdKey::from_unchecked(Self::fmt(i).as_str())
@@ -816,7 +860,7 @@ pub(crate) type RawKeywords = HashMap<String, String>;
 type ReqResult<T> = Result<T, String>;
 type OptResult<T> = Result<OptionalKw<T>, String>;
 
-pub(crate) fn get_req<T>(kws: &RawKeywords, k: &str) -> Result<T, String>
+pub(crate) fn get_req<T>(kws: &StdKeywords, k: &StdKey) -> Result<T, String>
 where
     T: FromStr,
     <T as FromStr>::Err: fmt::Display,
@@ -829,7 +873,7 @@ where
     }
 }
 
-pub(crate) fn get_opt<T>(kws: &RawKeywords, k: &str) -> Result<Option<T>, String>
+pub(crate) fn get_opt<T>(kws: &StdKeywords, k: &StdKey) -> Result<Option<T>, String>
 where
     T: FromStr,
     <T as FromStr>::Err: fmt::Display,
@@ -844,7 +888,7 @@ where
 }
 
 // TODO not DRY
-pub(crate) fn remove_req<T>(kws: &mut RawKeywords, k: &str) -> Result<T, String>
+pub(crate) fn remove_req<T>(kws: &mut StdKeywords, k: &StdKey) -> Result<T, String>
 where
     T: FromStr,
     <T as FromStr>::Err: fmt::Display,
@@ -857,7 +901,7 @@ where
     }
 }
 
-pub(crate) fn remove_opt<T>(kws: &mut RawKeywords, k: &str) -> Result<Option<T>, String>
+pub(crate) fn remove_opt<T>(kws: &mut StdKeywords, k: &StdKey) -> Result<Option<T>, String>
 where
     T: FromStr,
     <T as FromStr>::Err: fmt::Display,
@@ -872,7 +916,7 @@ where
 }
 
 pub(crate) trait Required {
-    fn get_req<V>(kws: &RawKeywords, k: &str) -> Result<V, String>
+    fn get_req<V>(kws: &StdKeywords, k: &StdKey) -> Result<V, String>
     where
         V: FromStr,
         <V as FromStr>::Err: fmt::Display,
@@ -880,7 +924,7 @@ pub(crate) trait Required {
         get_req(kws, k)
     }
 
-    fn remove_req<V>(kws: &mut RawKeywords, k: &str) -> Result<V, String>
+    fn remove_req<V>(kws: &mut StdKeywords, k: &StdKey) -> Result<V, String>
     where
         V: FromStr,
         <V as FromStr>::Err: fmt::Display,
@@ -890,7 +934,7 @@ pub(crate) trait Required {
 }
 
 pub(crate) trait Optional {
-    fn get_opt<V>(kws: &RawKeywords, k: &str) -> Result<OptionalKw<V>, String>
+    fn get_opt<V>(kws: &StdKeywords, k: &StdKey) -> Result<OptionalKw<V>, String>
     where
         V: FromStr,
         <V as FromStr>::Err: fmt::Display,
@@ -898,7 +942,7 @@ pub(crate) trait Optional {
         get_opt(kws, k).map(|x| x.into())
     }
 
-    fn remove_opt<V>(kws: &mut RawKeywords, k: &str) -> Result<OptionalKw<V>, String>
+    fn remove_opt<V>(kws: &mut StdKeywords, k: &StdKey) -> Result<OptionalKw<V>, String>
     where
         V: FromStr,
         <V as FromStr>::Err: fmt::Display,
@@ -915,16 +959,16 @@ where
     Self: FromStr,
     <Self as FromStr>::Err: fmt::Display,
 {
-    fn get_meta_req(kws: &RawKeywords) -> ReqResult<Self> {
-        Self::get_req(kws, Self::std().as_str())
+    fn get_meta_req(kws: &StdKeywords) -> ReqResult<Self> {
+        Self::get_req(kws, &Self::std())
     }
 
-    fn remove_meta_req(kws: &mut RawKeywords) -> ReqResult<Self> {
-        Self::remove_req(kws, Self::std().as_str())
+    fn remove_meta_req(kws: &mut StdKeywords) -> ReqResult<Self> {
+        Self::remove_req(kws, &Self::std())
     }
 
     fn pair(&self) -> (String, String) {
-        (Self::std(), self.to_string())
+        (Self::std().to_string(), self.to_string())
     }
 }
 
@@ -936,16 +980,16 @@ where
     Self: FromStr,
     <Self as FromStr>::Err: fmt::Display,
 {
-    fn get_meas_req(kws: &RawKeywords, n: MeasIdx) -> ReqResult<Self> {
-        Self::get_req(kws, Self::std(n).as_str())
+    fn get_meas_req(kws: &StdKeywords, n: MeasIdx) -> ReqResult<Self> {
+        Self::get_req(kws, &Self::std(n))
     }
 
-    fn remove_meas_req(kws: &mut RawKeywords, n: MeasIdx) -> ReqResult<Self> {
-        Self::remove_req(kws, Self::std(n).as_str())
+    fn remove_meas_req(kws: &mut StdKeywords, n: MeasIdx) -> ReqResult<Self> {
+        Self::remove_req(kws, &Self::std(n))
     }
 
     fn triple(&self, n: MeasIdx) -> (String, String, String) {
-        (Self::std_blank(), Self::std(n), self.to_string())
+        (Self::blank(), Self::std(n).to_string(), self.to_string())
     }
 
     fn pair(&self, n: MeasIdx) -> (String, String) {
@@ -962,16 +1006,19 @@ where
     Self: FromStr,
     <Self as FromStr>::Err: fmt::Display,
 {
-    fn get_meta_opt(kws: &RawKeywords) -> OptResult<Self> {
-        Self::get_opt(kws, Self::std().as_str())
+    fn get_meta_opt(kws: &StdKeywords) -> OptResult<Self> {
+        Self::get_opt(kws, &Self::std())
     }
 
-    fn remove_meta_opt(kws: &mut RawKeywords) -> OptResult<Self> {
-        Self::remove_opt(kws, Self::std().as_str())
+    fn remove_meta_opt(kws: &mut StdKeywords) -> OptResult<Self> {
+        Self::remove_opt(kws, &Self::std())
     }
 
     fn pair(opt: &OptionalKw<Self>) -> (String, Option<String>) {
-        (Self::std(), opt.0.as_ref().map(|s| s.to_string()))
+        (
+            Self::std().to_string(),
+            opt.0.as_ref().map(|s| s.to_string()),
+        )
     }
 }
 
@@ -983,18 +1030,18 @@ where
     Self: FromStr,
     <Self as FromStr>::Err: fmt::Display,
 {
-    fn get_meas_opt(kws: &RawKeywords, n: MeasIdx) -> OptResult<Self> {
-        Self::get_opt(kws, Self::std(n).as_str())
+    fn get_meas_opt(kws: &StdKeywords, n: MeasIdx) -> OptResult<Self> {
+        Self::get_opt(kws, &Self::std(n))
     }
 
-    fn remove_meas_opt(kws: &mut RawKeywords, n: MeasIdx) -> OptResult<Self> {
-        Self::remove_opt(kws, Self::std(n).as_str())
+    fn remove_meas_opt(kws: &mut StdKeywords, n: MeasIdx) -> OptResult<Self> {
+        Self::remove_opt(kws, &Self::std(n))
     }
 
     fn triple(opt: &OptionalKw<Self>, n: MeasIdx) -> (String, String, Option<String>) {
         (
-            Self::std_blank(),
-            Self::std(n),
+            Self::blank(),
+            Self::std(n).to_string(),
             opt.0.as_ref().map(|s| s.to_string()),
         )
     }
@@ -1342,3 +1389,19 @@ kw_opt_meas!(Wavelengths, "L"); // vector in 3.1+
 
 kw_opt_meas!(Calibration3_1, "CALIBRATION"); // 3.1 doesn't have offset
 kw_opt_meas!(Calibration3_2, "CALIBRATION"); // 3.2+ includes offset
+
+pub struct Beginanalysis;
+pub struct Endanalysis;
+pub struct Begindata;
+pub struct Enddata;
+pub struct Beginstext;
+pub struct Endstext;
+pub struct Nextdata;
+
+kw_meta!(Beginanalysis, "BEGINANALYSIS");
+kw_meta!(Endanalysis, "ENDANALYSIS");
+kw_meta!(Begindata, "BEGINDATA");
+kw_meta!(Enddata, "ENDDATA");
+kw_meta!(Beginstext, "BEGINSTEXT");
+kw_meta!(Endstext, "ENDSTEXT");
+kw_meta!(Nextdata, "NEXTDATA");

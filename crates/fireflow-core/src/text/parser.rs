@@ -10,7 +10,6 @@ use super::optionalkw::*;
 use super::timestamps::*;
 
 use nalgebra::DMatrix;
-use std::collections::HashMap;
 use std::fmt::Display;
 use std::str::FromStr;
 
@@ -26,9 +25,9 @@ use std::str::FromStr;
 /// which point the errors are returned along with the result of the computation
 /// or failure (if applicable).
 pub(crate) struct KwParser<'a, 'b> {
-    raw_keywords: &'b mut RawKeywords,
+    raw_keywords: &'b mut StdKeywords,
     deferred: PureErrorBuf,
-    conf: &'a StdTextReadConfig,
+    pub(crate) conf: &'a StdTextReadConfig,
 }
 
 impl<'a, 'b> KwParser<'a, 'b> {
@@ -42,7 +41,7 @@ impl<'a, 'b> KwParser<'a, 'b> {
     /// directly, as errors are not allowed to be returned by the inner
     /// computation.
     pub(crate) fn try_run<X, F>(
-        kws: &'b mut RawKeywords,
+        kws: &'b mut StdKeywords,
         conf: &'a StdTextReadConfig,
         reason: String,
         f: F,
@@ -169,8 +168,9 @@ impl<'a, 'b> KwParser<'a, 'b> {
         let mut matrix = DMatrix::<f32>::identity(n, n);
         for r in 0..n {
             for c in 0..n {
-                let k = format!("DFC{c}TO{r}");
-                if let Some(x) = self.lookup_dfc(k.as_str()) {
+                // TODO sketchy
+                let k = StdKey(format!("DFC{c}TO{r}").as_bytes().to_vec());
+                if let Some(x) = self.lookup_dfc(&k) {
                     matrix[(r, c)] = x;
                 } else {
                     any_error = true;
@@ -187,7 +187,7 @@ impl<'a, 'b> KwParser<'a, 'b> {
         .into()
     }
 
-    pub(crate) fn lookup_dfc(&mut self, k: &str) -> Option<f32> {
+    pub(crate) fn lookup_dfc(&mut self, k: &StdKey) -> Option<f32> {
         self.raw_keywords.remove(k).and_then(|v| {
             v.parse::<f32>()
                 .inspect_err(|e| {
@@ -198,46 +198,50 @@ impl<'a, 'b> KwParser<'a, 'b> {
         })
     }
 
-    pub(crate) fn lookup_all_nonstandard(&mut self) -> NonStdKeywords {
-        let mut ns = HashMap::new();
-        self.raw_keywords.retain(|k, v| {
-            if let Ok(nk) = k.parse::<NonStdKey>() {
-                ns.insert(nk, v.clone());
-                false
-            } else {
-                true
-            }
-        });
-        ns
-    }
+    // pub(crate) fn lookup_all_nonstandard(&mut self) -> NonStdKeywords {
+    //     let mut ns = HashMap::new();
+    //     self.raw_keywords.nonstd.retain(|k, v| {
+    //         if let Ok(nk) = k.parse::<NonStdKey>() {
+    //             ns.insert(nk, v.clone());
+    //             false
+    //         } else {
+    //             true
+    //         }
+    //     });
+    //     ns
+    // }
 
     // TODO I don't really need a hash table for this. It would be easier and
     // probably faster to just use a paired vector, although I would need to
     // ensure the keys are unique.
-    pub(crate) fn lookup_all_meas_nonstandard(&mut self, n: MeasIdx) -> NonStdKeywords {
-        let mut ns = HashMap::new();
-        // ASSUME the pattern does not start with "$" and has a %n which will be
-        // subbed for the measurement index. The pattern will then be turned
-        // into a legit rust regular expression, which may fail depending on
-        // what %n does, so check it each time.
-        if let Some(p) = &self.conf.nonstandard_measurement_pattern {
-            match p.from_index(n) {
-                Ok(pattern) => self.raw_keywords.retain(|k, v| {
-                    if let Some(nk) = pattern.try_match(k.as_str()) {
-                        ns.insert(nk, v.clone());
-                        false
-                    } else {
-                        true
-                    }
-                }),
-                Err(err) => self.deferred.push_warning(err.to_string()),
-            }
-        }
-        ns
-    }
+    // pub(crate) fn lookup_all_meas_nonstandard(&mut self, n: MeasIdx) -> NonStdKeywords {
+    //     let mut ns = HashMap::new();
+    //     // ASSUME the pattern does not start with "$" and has a %n which will be
+    //     // subbed for the measurement index. The pattern will then be turned
+    //     // into a legit rust regular expression, which may fail depending on
+    //     // what %n does, so check it each time.
+    //     if let Some(p) = &self.conf.nonstandard_measurement_pattern {
+    //         match p.from_index(n) {
+    //             Ok(pattern) => self.raw_keywords.nonstd.retain(|k, v| {
+    //                 if let Some(nk) = pattern.try_match(k.as_ref()) {
+    //                     ns.insert(nk, v.clone());
+    //                     false
+    //                 } else {
+    //                     true
+    //                 }
+    //             }),
+    //             Err(err) => self.deferred.push_warning(err.to_string()),
+    //         }
+    //     }
+    //     ns
+    // }
 
     pub fn push_error(&mut self, e: String) {
         self.deferred.push_error(e)
+    }
+
+    pub fn push_warning(&mut self, e: String) {
+        self.deferred.push_warning(e)
     }
 
     // auxiliary functions
@@ -253,7 +257,7 @@ impl<'a, 'b> KwParser<'a, 'b> {
         }
     }
 
-    fn from(kws: &'b mut RawKeywords, conf: &'a StdTextReadConfig) -> Self {
+    fn from(kws: &'b mut StdKeywords, conf: &'a StdTextReadConfig) -> Self {
         KwParser {
             raw_keywords: kws,
             deferred: PureErrorBuf::default(),
@@ -264,7 +268,7 @@ impl<'a, 'b> KwParser<'a, 'b> {
     fn process_opt<V>(
         &mut self,
         res: Result<OptionalKw<V>, String>,
-        k: String,
+        k: StdKey,
         dep: bool,
     ) -> OptionalKw<V> {
         res.inspect(|_| {

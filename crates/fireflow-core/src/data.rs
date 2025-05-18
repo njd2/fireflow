@@ -39,11 +39,11 @@ pub trait VersionedDataLayout: Sized {
         cs: Vec<ColumnLayoutData<Self::D>>,
     ) -> Result<Self, Vec<String>>;
 
-    fn try_new_from_raw(kws: &RawKeywords) -> Result<Self, Vec<String>>;
+    fn try_new_from_raw(kws: &StdKeywords) -> Result<Self, Vec<String>>;
 
     fn ncols(&self) -> usize;
 
-    fn into_reader(self, kws: &RawKeywords, data_seg: Segment) -> PureMaybe<ColumnReader>;
+    fn into_reader(self, kws: &StdKeywords, data_seg: Segment) -> PureMaybe<ColumnReader>;
 
     fn as_writer<'a>(
         &self,
@@ -1925,7 +1925,7 @@ impl VersionedDataLayout for DataLayout2_0 {
         }
     }
 
-    fn try_new_from_raw(kws: &RawKeywords) -> Result<Self, Vec<String>> {
+    fn try_new_from_raw(kws: &StdKeywords) -> Result<Self, Vec<String>> {
         let (datatype, byteord, columns) = kws_get_layout_2_0(kws)?;
         Self::try_new(datatype, byteord, columns)
     }
@@ -1950,7 +1950,7 @@ impl VersionedDataLayout for DataLayout2_0 {
         }
     }
 
-    fn into_reader(self, kws: &RawKeywords, data_seg: Segment) -> PureMaybe<ColumnReader> {
+    fn into_reader(self, kws: &StdKeywords, data_seg: Segment) -> PureMaybe<ColumnReader> {
         let res = Tot::get_meta_opt(kws).map(|tot| tot.0);
         let nbytes = data_seg.nbytes() as usize;
         PureMaybe::from_result_1(res, PureErrorLevel::Error)
@@ -2004,7 +2004,7 @@ impl VersionedDataLayout for DataLayout3_0 {
         }
     }
 
-    fn try_new_from_raw(kws: &RawKeywords) -> Result<Self, Vec<String>> {
+    fn try_new_from_raw(kws: &StdKeywords) -> Result<Self, Vec<String>> {
         let (datatype, byteord, columns) = kws_get_layout_2_0(kws)?;
         Self::try_new(datatype, byteord, columns)
     }
@@ -2029,7 +2029,7 @@ impl VersionedDataLayout for DataLayout3_0 {
         }
     }
 
-    fn into_reader(self, kws: &RawKeywords, data_seg: Segment) -> PureMaybe<ColumnReader> {
+    fn into_reader(self, kws: &StdKeywords, data_seg: Segment) -> PureMaybe<ColumnReader> {
         let res = Tot::get_meta_req(kws);
         PureMaybe::from_result_1(res, PureErrorLevel::Error).and_then(|tot| match self {
             DataLayout3_0::Ascii(a) => a.into_reader(data_seg, tot),
@@ -2072,7 +2072,7 @@ impl VersionedDataLayout for DataLayout3_1 {
         }
     }
 
-    fn try_new_from_raw(kws: &RawKeywords) -> Result<Self, Vec<String>> {
+    fn try_new_from_raw(kws: &StdKeywords) -> Result<Self, Vec<String>> {
         let cs = kws_get_columns(kws);
         let d = AlphaNumType::get_meta_req(kws);
         let e = Endian::get_meta_req(kws);
@@ -2106,7 +2106,7 @@ impl VersionedDataLayout for DataLayout3_1 {
         }
     }
 
-    fn into_reader(self, kws: &RawKeywords, data_seg: Segment) -> PureMaybe<ColumnReader> {
+    fn into_reader(self, kws: &StdKeywords, data_seg: Segment) -> PureMaybe<ColumnReader> {
         let res = Tot::get_meta_req(kws);
         PureMaybe::from_result_1(res, PureErrorLevel::Error).and_then(|tot| match self {
             DataLayout3_1::Ascii(a) => a.into_reader(data_seg, tot),
@@ -2171,7 +2171,7 @@ impl VersionedDataLayout for DataLayout3_2 {
         }
     }
 
-    fn try_new_from_raw(kws: &RawKeywords) -> Result<Self, Vec<String>> {
+    fn try_new_from_raw(kws: &StdKeywords) -> Result<Self, Vec<String>> {
         let p = Par::get_meta_req(kws);
         let d = AlphaNumType::get_meta_req(kws);
         let (par, datatype) = match (p, d) {
@@ -2239,7 +2239,7 @@ impl VersionedDataLayout for DataLayout3_2 {
         }
     }
 
-    fn into_reader(self, kws: &RawKeywords, data_seg: Segment) -> PureMaybe<ColumnReader> {
+    fn into_reader(self, kws: &StdKeywords, data_seg: Segment) -> PureMaybe<ColumnReader> {
         let res = Tot::get_meta_req(kws);
         PureMaybe::from_result_1(res, PureErrorLevel::Error).and_then(|tot| match self {
             DataLayout3_2::Ascii(a) => a.into_reader(data_seg, tot),
@@ -2257,7 +2257,7 @@ impl VersionedDataLayout for DataLayout3_2 {
 }
 
 fn kws_get_layout_2_0(
-    kws: &RawKeywords,
+    kws: &StdKeywords,
 ) -> Result<(AlphaNumType, ByteOrd, Vec<ColumnLayoutData<()>>), Vec<String>> {
     let cs = kws_get_columns(kws);
     let d = AlphaNumType::get_meta_req(kws);
@@ -2272,7 +2272,7 @@ fn kws_get_layout_2_0(
     }
 }
 
-fn kws_get_columns(kws: &RawKeywords) -> Result<Vec<ColumnLayoutData<()>>, Vec<String>> {
+fn kws_get_columns(kws: &StdKeywords) -> Result<Vec<ColumnLayoutData<()>>, Vec<String>> {
     Par::get_meta_req(kws).map_err(|e| vec![e]).and_then(|par| {
         let (pass, fail): (Vec<_>, Vec<_>) = (0..par.0)
             .map(|i| {

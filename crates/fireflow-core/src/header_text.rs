@@ -312,10 +312,11 @@ const SUPP_TEXT_LEN_NO_VAL: usize = BEGINSTEXT.len() + ENDSTEXT.len() + 4;
 const OFFSETS_LEN_NO_VAL: usize =
     DATA_LEN_NO_VAL + ANALYSIS_LEN_NO_VAL + SUPP_TEXT_LEN_NO_VAL + NEXTDATA_LEN;
 
-pub(crate) const BEGINANALYSIS: &str = "$BEGINANALYSIS";
-pub(crate) const BEGINDATA: &str = "$BEGINDATA";
-pub(crate) const BEGINSTEXT: &str = "$BEGINSTEXT";
-pub(crate) const ENDANALYSIS: &str = "$ENDANALYSIS";
-pub(crate) const ENDDATA: &str = "$ENDDATA";
-pub(crate) const ENDSTEXT: &str = "$ENDSTEXT";
-pub(crate) const NEXTDATA: &str = "$NEXTDATA";
+// TODO get rid of these
+const BEGINANALYSIS: &str = "$BEGINANALYSIS";
+const BEGINDATA: &str = "$BEGINDATA";
+const BEGINSTEXT: &str = "$BEGINSTEXT";
+const ENDANALYSIS: &str = "$ENDANALYSIS";
+const ENDDATA: &str = "$ENDDATA";
+const ENDSTEXT: &str = "$ENDSTEXT";
+const NEXTDATA: &str = "$NEXTDATA";

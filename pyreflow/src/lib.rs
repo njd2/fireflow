@@ -324,7 +324,14 @@ fn read_fcs_std_text(
         api::AnyCoreTEXT::FCS3_2(x) => PyCoreTEXT3_2::from((**x).clone()).into_bound_py_any(py),
     }?;
 
-    Ok((text, out.parse.into(), out.deviant.into_py_dict(py)?))
+    Ok((
+        text,
+        out.parse.into(),
+        out.deviant
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v))
+            .into_py_dict(py)?,
+    ))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -502,7 +509,14 @@ fn read_fcs_file(
         api::AnyCoreDataset::FCS3_2(x) => PyCoreDataset3_2::from(x.clone()).into_bound_py_any(py),
     }?;
 
-    Ok((dataset, out.parse.into(), out.deviant.into_py_dict(py)?))
+    Ok((
+        dataset,
+        out.parse.into(),
+        out.deviant
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v))
+            .into_py_dict(py)?,
+    ))
 }
 
 macro_rules! pywrap {
@@ -796,10 +810,10 @@ impl PyRawTEXT {
     // TODO this is a gotcha because if someone tries to modify a keyword like
     // 'std.keywords.cells = "2112"' then it the modification will actually be
     // done to a copy of 'keywords' rather than 'std'.
-    #[getter]
-    fn keywords<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        self.0.keywords.clone().into_py_dict(py)
-    }
+    // #[getter]
+    // fn keywords<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+    //     self.0.keywords.clone().into_py_dict(py)
+    // }
 }
 
 #[pymethods]
