@@ -1,15 +1,18 @@
-use derive_more::{Display, Into};
+use derive_more::{Add, Display, Into, Mul};
+use num_derive::{One, Zero};
 use serde::Serialize;
 use std::fmt;
 use std::num::ParseFloatError;
 use std::str::FromStr;
 
 /// A non-negative float
-#[derive(Clone, Copy, Serialize, PartialEq, Display, Into)]
+#[derive(Clone, Copy, Serialize, PartialEq, Display, Into, Zero, One, Mul, Add)]
+#[mul(forward)]
 pub struct NonNegFloat(f32);
 
 /// A positive float
-#[derive(Clone, Copy, Serialize, PartialEq, Display, Into)]
+#[derive(Clone, Copy, Serialize, PartialEq, Display, Into, One, Mul)]
+#[mul(forward)]
 pub struct PositiveFloat(f32);
 
 macro_rules! impl_ranged_float {

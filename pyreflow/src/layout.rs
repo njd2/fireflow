@@ -1,6 +1,7 @@
 use fireflow_core::data::{
     AnyNullBitmask, AnyOrderedLayout, DataLayout2_0, DataLayout3_0, DataLayout3_1, DataLayout3_2,
-    EndianLayoutOps, FloatRange, LayoutOps, NonMixedEndianLayout, NullMixedType, OrderedLayoutOps,
+    EndianLayoutOps, FloatType, LayoutOps, NonMixedEndianLayout, NullMixedType, OrderedLayoutOps,
+    UintType,
 };
 use fireflow_core::text::byteord::{Endian, SizedByteOrd};
 use fireflow_core::text::float_decimal::{FloatDecimal, HasFloatBounds};
@@ -376,18 +377,18 @@ impl PyDataLayout3_2 {
     }
 }
 
-fn vec_to_float_ranges<T, const LEN: usize>(xs: Vec<T>) -> PyResult<NonEmpty<FloatRange<T, LEN>>>
+fn vec_to_float_ranges<T, const LEN: usize>(xs: Vec<T>) -> PyResult<NonEmpty<FloatType<T, LEN>>>
 where
     T: HasFloatBounds,
     FloatDecimal<T>: TryFrom<T>,
     <FloatDecimal<T> as TryFrom<T>>::Error: std::fmt::Display,
 {
     let ns = vec_to_ne(xs)?;
-    ns.try_map(|r| FloatDecimal::try_from(r).map(FloatRange::new))
+    ns.try_map(|r| FloatDecimal::try_from(r).map(FloatType::new))
         .map_err(|e| PyreflowException::new_err(e.to_string()))
 }
 
-fn vec_to_bitmasks<T, const LEN: usize>(xs: Vec<T>) -> PyResult<NonEmpty<Bitmask<T, LEN>>>
+fn vec_to_bitmasks<T, const LEN: usize>(xs: Vec<T>) -> PyResult<NonEmpty<UintType<T, LEN>>>
 where
     T: Copy + std::fmt::Display + num_traits::PrimInt,
 {
@@ -415,12 +416,12 @@ fn any_to_mixed_type(x: Bound<'_, PyAny>) -> PyResult<NullMixedType> {
                 .extract::<f32>()
                 .map_err(|e| e.to_string())
                 .and_then(|y| FloatDecimal::<f32>::try_from(y).map_err(|e| e.to_string()))
-                .map(|range| NullMixedType::F32(FloatRange::new(range))),
+                .map(|range| NullMixedType::F32(FloatType::new(range))),
             "D" => value
                 .extract::<f64>()
                 .map_err(|e| e.to_string())
                 .and_then(|y| FloatDecimal::<f64>::try_from(y).map_err(|e| e.to_string()))
-                .map(|range| NullMixedType::F64(FloatRange::new(range))),
+                .map(|range| NullMixedType::F64(FloatType::new(range))),
             "I" => value
                 .extract()
                 .map(|y| NullMixedType::Uint(AnyNullBitmask::from_u64(y)))
