@@ -58,7 +58,8 @@ use crate::text::byteord::*;
 use crate::text::float_decimal::{FloatDecimal, FloatToDecimalError, HasFloatBounds};
 use crate::text::index::{IndexFromOne, MeasIndex};
 use crate::text::keywords::*;
-use crate::text::optional::ClearOptional;
+use crate::text::named_vec::MightHave;
+use crate::text::optional::{ClearOptional, Identity, OptionalValue};
 use crate::text::parser::*;
 use crate::text::ranged_float::PositiveFloat;
 use crate::text::scale::LogScale;
@@ -94,14 +95,16 @@ use std::str;
 #[delegate(LayoutOps<'a, T>, generics = "'a, T")]
 #[delegate(InterLayoutOps<D>, generics = "D")]
 #[delegate(OrderedLayoutOps)]
-pub struct DataLayout2_0(pub AnyOrderedLayout<MaybeTot>);
+pub struct DataLayout2_0(
+    pub AnyOrderedLayout<MaybeTot, OptionalKwFamily, OptionalValue<UintXform>>,
+);
 
 /// All possible byte layouts for the DATA segment in 2.0.
 #[derive(Clone, Serialize, From, Delegate)]
 #[delegate(LayoutOps<'a, T>, generics = "'a, T")]
 #[delegate(InterLayoutOps<D>, generics = "D")]
 #[delegate(OrderedLayoutOps)]
-pub struct DataLayout3_0(pub AnyOrderedLayout<KnownTot>);
+pub struct DataLayout3_0(pub AnyOrderedLayout<KnownTot, IdentityFamily, Identity<UintXform>>);
 
 /// All possible byte layouts for the DATA segment in 3.1.
 ///
@@ -134,9 +137,9 @@ pub enum DataLayout3_2 {
 #[delegate(LayoutOps<'a, Tot>, generics = "'a, Tot")]
 #[delegate(InterLayoutOps<DT>, generics = "DT")]
 #[delegate(OrderedLayoutOps)]
-pub enum AnyOrderedLayout<T> {
+pub enum AnyOrderedLayout<T, XW, X> {
     Ascii(AnyAsciiLayout<T, NoMeasDatatype, true>),
-    Integer(AnyOrderedUintLayout<T>),
+    Integer(AnyOrderedUintLayout<T, XW, X>),
     F32(OrderedLayout<F32Type, T>),
     F64(OrderedLayout<F64Type, T>),
 }
@@ -193,16 +196,16 @@ pub struct FixedLayout<C, L, T, D> {
 #[delegate(LayoutOps<'a, Tot>, generics = "'a, Tot")]
 #[delegate(InterLayoutOps<DT>, generics = "DT")]
 #[delegate(OrderedLayoutOps)]
-pub enum AnyOrderedUintLayout<T> {
+pub enum AnyOrderedUintLayout<T, XW, X> {
     // TODO the first two don't need to be ordered
-    Uint08(OrderedLayout<UintType08, T>),
-    Uint16(OrderedLayout<UintType16, T>),
-    Uint24(OrderedLayout<UintType24, T>),
-    Uint32(OrderedLayout<UintType32, T>),
-    Uint40(OrderedLayout<UintType40, T>),
-    Uint48(OrderedLayout<UintType48, T>),
-    Uint56(OrderedLayout<UintType56, T>),
-    Uint64(OrderedLayout<UintType64, T>),
+    Uint08(OrderedLayout<UintType08<XW, X>, T>),
+    Uint16(OrderedLayout<UintType16<XW, X>, T>),
+    Uint24(OrderedLayout<UintType24<XW, X>, T>),
+    Uint32(OrderedLayout<UintType32<XW, X>, T>),
+    Uint40(OrderedLayout<UintType40<XW, X>, T>),
+    Uint48(OrderedLayout<UintType48<XW, X>, T>),
+    Uint56(OrderedLayout<UintType56<XW, X>, T>),
+    Uint64(OrderedLayout<UintType64<XW, X>, T>),
 }
 
 type OrderedLayout<C, T> = FixedLayout<C, <C as HasNativeWidth>::Order, T, NoMeasDatatype>;
@@ -221,14 +224,14 @@ type WriterMixedType<'a> = MixedType<ColumnWriterFamily<'a>>;
 
 /// A big or little-endian integer column of some size (1-8 bytes)
 pub enum AnyBitmask<F: ColumnFamily> {
-    Uint08(NativeWrapper<F, UintType08>),
-    Uint16(NativeWrapper<F, UintType16>),
-    Uint24(NativeWrapper<F, UintType24>),
-    Uint32(NativeWrapper<F, UintType32>),
-    Uint40(NativeWrapper<F, UintType40>),
-    Uint48(NativeWrapper<F, UintType48>),
-    Uint56(NativeWrapper<F, UintType56>),
-    Uint64(NativeWrapper<F, UintType64>),
+    Uint08(NativeWrapper<F, UintType08<IdentityFamily, Identity<UintXform>>>),
+    Uint16(NativeWrapper<F, UintType16<IdentityFamily, Identity<UintXform>>>),
+    Uint24(NativeWrapper<F, UintType24<IdentityFamily, Identity<UintXform>>>),
+    Uint32(NativeWrapper<F, UintType32<IdentityFamily, Identity<UintXform>>>),
+    Uint40(NativeWrapper<F, UintType40<IdentityFamily, Identity<UintXform>>>),
+    Uint48(NativeWrapper<F, UintType48<IdentityFamily, Identity<UintXform>>>),
+    Uint56(NativeWrapper<F, UintType56<IdentityFamily, Identity<UintXform>>>),
+    Uint64(NativeWrapper<F, UintType64<IdentityFamily, Identity<UintXform>>>),
 }
 
 pub type AnyNullBitmask = AnyBitmask<ColumnNullFamily>;
@@ -250,22 +253,31 @@ pub type F64Type = FloatType<f64, 8>;
 
 /// The type of any non-ASCII int column in all versions.
 #[derive(Clone, Copy, Serialize, PartialEq)]
-pub struct UintType<T, const LEN: usize> {
+pub struct UintType<T, const LEN: usize, W, X> {
     /// The value of $PnR as a bitmask
     pub range: Bitmask<T, LEN>,
 
     /// The values of $PnE/$PnG which may imply a linear or log transform.
-    pub xform: UintXform,
+    pub xform: X,
+
+    _wrapper: PhantomData<W>,
 }
 
-type UintType08 = UintType<u8, 1>;
-type UintType16 = UintType<u16, 2>;
-type UintType24 = UintType<u32, 3>;
-type UintType32 = UintType<u32, 4>;
-type UintType40 = UintType<u64, 5>;
-type UintType48 = UintType<u64, 6>;
-type UintType56 = UintType<u64, 7>;
-type UintType64 = UintType<u64, 8>;
+type WrappedUintType<T, const LEN: usize, W: MightHave> =
+    UintType<T, LEN, W, W::Wrapper<UintXform>>;
+
+type OptionalUintType<T, const LEN: usize> = WrappedUintType<T, LEN, OptionalKwFamily>;
+
+type IdentityUintType<T, const LEN: usize> = WrappedUintType<T, LEN, IdentityFamily>;
+
+pub type UintType08<W, X> = UintType<u8, 1, W, X>;
+pub type UintType16<W, X> = UintType<u16, 2, W, X>;
+pub type UintType24<W, X> = UintType<u32, 3, W, X>;
+pub type UintType32<W, X> = UintType<u32, 4, W, X>;
+pub type UintType40<W, X> = UintType<u64, 5, W, X>;
+pub type UintType48<W, X> = UintType<u64, 6, W, X>;
+pub type UintType56<W, X> = UintType<u64, 7, W, X>;
+pub type UintType64<W, X> = UintType<u64, 8, W, X>;
 
 /// A scale transform that may be applied to an integer column.
 #[derive(Clone, Copy, Serialize, PartialEq)]
@@ -936,26 +948,34 @@ impl_null_layout!(
 );
 
 macro_rules! impl_any_uint {
-    ($var:ident, $bitmask:path) => {
-        impl From<$bitmask> for AnyNullBitmask {
-            fn from(value: $bitmask) -> Self {
+    ($var:ident, $uinttype:ident) => {
+        impl From<$uinttype<IdentityFamily, Identity<UintXform>>> for AnyNullBitmask {
+            fn from(value: $uinttype<IdentityFamily, Identity<UintXform>>) -> Self {
                 Self::$var(value)
             }
         }
 
-        impl From<UintColumnReader<$bitmask>> for AnyReaderBitmask {
-            fn from(value: UintColumnReader<$bitmask>) -> Self {
+        impl From<UintColumnReader<$uinttype<IdentityFamily, Identity<UintXform>>>>
+            for AnyReaderBitmask
+        {
+            fn from(
+                value: UintColumnReader<$uinttype<IdentityFamily, Identity<UintXform>>>,
+            ) -> Self {
                 Self::$var(value)
             }
         }
 
-        impl<'a> From<UintColumnWriter<'a, $bitmask>> for AnyWriterBitmask<'a> {
-            fn from(value: UintColumnWriter<'a, $bitmask>) -> Self {
+        impl<'a> From<UintColumnWriter<'a, $uinttype<IdentityFamily, Identity<UintXform>>>>
+            for AnyWriterBitmask<'a>
+        {
+            fn from(
+                value: UintColumnWriter<'a, $uinttype<IdentityFamily, Identity<UintXform>>>,
+            ) -> Self {
                 Self::$var(value)
             }
         }
 
-        impl TryFrom<AnyNullBitmask> for $bitmask {
+        impl TryFrom<AnyNullBitmask> for $uinttype<IdentityFamily, Identity<UintXform>> {
             type Error = UintToUintError;
             fn try_from(value: AnyNullBitmask) -> Result<Self, Self::Error> {
                 let w = value.nbytes();
@@ -970,7 +990,7 @@ macro_rules! impl_any_uint {
             }
         }
 
-        impl TryFrom<NullMixedType> for $bitmask {
+        impl TryFrom<NullMixedType> for $uinttype<IdentityFamily, Identity<UintXform>> {
             type Error = MixedToOrderedUintError;
             fn try_from(value: NullMixedType) -> Result<Self, Self::Error> {
                 let w = value.nbytes();
@@ -995,8 +1015,8 @@ macro_rules! impl_any_uint {
             }
         }
 
-        impl From<$bitmask> for NullMixedType {
-            fn from(value: $bitmask) -> Self {
+        impl From<$uinttype<IdentityFamily, Identity<UintXform>>> for NullMixedType {
+            fn from(value: $uinttype<IdentityFamily, Identity<UintXform>>) -> Self {
                 MixedType::Uint(value.into())
             }
         }
@@ -1180,12 +1200,12 @@ macro_rules! match_any_mixed {
     };
 }
 
-impl<T, const LEN: usize> From<&UintType<T, LEN>> for Range
+impl<T, const LEN: usize, XW, X> From<&UintType<T, LEN, XW, X>> for Range
 where
     Bitmask<T, LEN>: Copy,
     Range: From<Bitmask<T, LEN>>,
 {
-    fn from(value: &UintType<T, LEN>) -> Self {
+    fn from(value: &UintType<T, LEN, XW, X>) -> Self {
         Range::from(value.range)
     }
 }
@@ -1232,13 +1252,16 @@ mixed_to_inner!(AnyNullBitmask, Uint);
 mixed_to_inner!(F32Type, F32);
 mixed_to_inner!(F64Type, F64);
 
-impl<T, const LEN: usize> ToNativeReader for UintType<T, LEN> where Self: HasNativeType<Native = T> {}
+impl<T, const LEN: usize, XW, X> ToNativeReader for UintType<T, LEN, XW, X> where
+    Self: HasNativeType<Native = T>
+{
+}
 
 impl<T, const LEN: usize> ToNativeReader for FloatType<T, LEN> where Self: HasNativeType<Native = T> {}
 
 impl ToNativeReader for AsciiRange {}
 
-impl<T, const LEN: usize> NativeReadable<Endian> for UintType<T, LEN>
+impl<T, const LEN: usize, XW, X> NativeReadable<Endian> for UintType<T, LEN, XW, X>
 where
     Self: HasNativeType<Native = T>,
     T: Ord + Copy + IntFromBytes<LEN>,
@@ -1254,7 +1277,7 @@ where
     }
 }
 
-impl<T, const LEN: usize> NativeReadable<SizedByteOrd<LEN>> for UintType<T, LEN>
+impl<T, const LEN: usize, XW, X> NativeReadable<SizedByteOrd<LEN>> for UintType<T, LEN, XW, X>
 where
     Self: HasNativeType<Native = T>,
     T: Ord + Copy + IntFromBytes<LEN>,
@@ -1402,7 +1425,7 @@ impl Readable<Endian> for AnyReaderBitmask {
     }
 }
 
-impl<T, const LEN: usize> NativeWritable<Endian> for UintType<T, LEN>
+impl<T, const LEN: usize, XW, X> NativeWritable<Endian> for UintType<T, LEN, XW, X>
 where
     Self: HasNativeType<Native = T>,
     T: Ord + Copy + IntFromBytes<LEN>,
@@ -1417,7 +1440,7 @@ where
     }
 }
 
-impl<T, const LEN: usize> NativeWritable<SizedByteOrd<LEN>> for UintType<T, LEN>
+impl<T, const LEN: usize, XW, X> NativeWritable<SizedByteOrd<LEN>> for UintType<T, LEN, XW, X>
 where
     Self: HasNativeType<Native = T>,
     T: Ord + Copy + IntFromBytes<LEN>,
@@ -1569,7 +1592,7 @@ impl<'a> Writable<'a, Endian> for AnyWriterBitmask<'a> {
     }
 }
 
-impl<T, const LEN: usize> ToNativeWriter for UintType<T, LEN>
+impl<T, const LEN: usize, XW, X> ToNativeWriter for UintType<T, LEN, XW, X>
 where
     Self: HasNativeType<Native = T>,
     u64: From<T>,
@@ -1689,7 +1712,9 @@ impl<D> EndianLayout<AnyNullBitmask, D> {
         })
     }
 
-    pub(crate) fn uint_try_into_ordered<T>(self) -> LayoutConvertResult<AnyOrderedUintLayout<T>> {
+    pub(crate) fn uint_try_into_ordered<T>(
+        self,
+    ) -> LayoutConvertResult<AnyOrderedUintLayout<T, IdentityFamily, Identity<UintXform>>> {
         let cs = self.columns;
         cs.head
             .try_into_one_size(cs.tail, self.byte_layout, 1)
@@ -1701,7 +1726,10 @@ impl<D> EndianLayout<AnyNullBitmask, D> {
 impl<D> EndianLayout<NullMixedType, D> {
     pub(crate) fn try_into_ordered<T>(
         self,
-    ) -> MultiResult<AnyOrderedLayout<T>, MixedToOrderedLayoutError> {
+    ) -> MultiResult<
+        AnyOrderedLayout<T, IdentityFamily, Identity<UintXform>>,
+        MixedToOrderedLayoutError,
+    > {
         let c0 = self.columns.head;
         let cs = self.columns.tail;
         let endian = self.byte_layout;
@@ -1842,29 +1870,47 @@ impl IntFromBytes<6> for u64 {}
 impl IntFromBytes<7> for u64 {}
 impl IntFromBytes<8> for u64 {}
 
-impl<T, const LEN: usize> UintType<T, LEN> {
-    fn try_from_many<E, X>(
-        xs: Vec<X>,
+impl<T, const LEN: usize, W: MightHave> UintType<T, LEN, W, W::Wrapper<UintXform>> {
+    fn new(range: Bitmask<T, LEN>, xform: W::Wrapper<UintXform>) -> Self {
+        Self {
+            range,
+            xform,
+            _wrapper: PhantomData,
+        }
+    }
+
+    fn try_from_many<E, C>(
+        cs: Vec<C>,
         starting_index: usize,
     ) -> MultiResult<Vec<Self>, (MeasIndex, E)>
     where
-        Self: TryFrom<X, Error = E>,
+        Self: TryFrom<C, Error = E>,
     {
-        xs.into_iter()
+        cs.into_iter()
             .enumerate()
             .map(|(i, c)| Self::try_from(c).map_err(|e| ((i + starting_index).into(), e)))
             .gather()
     }
 
+    fn xform_into<W0>(self) -> UintType<T, LEN, W0, W0::Wrapper<UintXform>>
+    where
+        W0: MightHave,
+        W0::Wrapper<UintXform>: From<W::Wrapper<UintXform>>,
+    {
+        UintType::new(self.range, self.xform.into())
+    }
+}
+
+impl<T, const LEN: usize> IdentityUintType<T, LEN> {
     fn from_u64(range: u64) -> Self
     where
         T: TryFrom<u64> + PrimInt,
     {
         // TODO use arg for xform
-        Self {
-            range: Bitmask::from_u64(range).0,
-            xform: UintXform::Lin(PositiveFloat::one()),
-        }
+        Self::new(
+            Bitmask::from_u64(range).0,
+            Identity(UintXform::Lin(PositiveFloat::one())),
+        )
     }
 }
 
@@ -1991,21 +2037,21 @@ impl AnyNullBitmask {
         }
     }
 
-    pub(crate) fn try_into_one_size<X, E, T>(
+    pub(crate) fn try_into_one_size<C, E, T>(
         self,
-        tail: Vec<X>,
+        tail: Vec<C>,
         endian: Endian,
         starting_index: usize,
-    ) -> MultiResult<AnyOrderedUintLayout<T>, (MeasIndex, E)>
+    ) -> MultiResult<AnyOrderedUintLayout<T, IdentityFamily, Identity<UintXform>>, (MeasIndex, E)>
     where
-        UintType08: TryFrom<X, Error = E>,
-        UintType16: TryFrom<X, Error = E>,
-        UintType24: TryFrom<X, Error = E>,
-        UintType32: TryFrom<X, Error = E>,
-        UintType40: TryFrom<X, Error = E>,
-        UintType48: TryFrom<X, Error = E>,
-        UintType56: TryFrom<X, Error = E>,
-        UintType64: TryFrom<X, Error = E>,
+        UintType08<IdentityFamily, Identity<UintXform>>: TryFrom<C, Error = E>,
+        UintType16<IdentityFamily, Identity<UintXform>>: TryFrom<C, Error = E>,
+        UintType24<IdentityFamily, Identity<UintXform>>: TryFrom<C, Error = E>,
+        UintType32<IdentityFamily, Identity<UintXform>>: TryFrom<C, Error = E>,
+        UintType40<IdentityFamily, Identity<UintXform>>: TryFrom<C, Error = E>,
+        UintType48<IdentityFamily, Identity<UintXform>>: TryFrom<C, Error = E>,
+        UintType56<IdentityFamily, Identity<UintXform>>: TryFrom<C, Error = E>,
+        UintType64<IdentityFamily, Identity<UintXform>>: TryFrom<C, Error = E>,
     {
         match_any_uint!(self, Self, x, {
             UintType::try_from_many(tail, starting_index)
@@ -2675,13 +2721,13 @@ impl<C> EndianLayout<C, HasMeasDatatype> {
     }
 }
 
-macro_rules! def_native_wrapper {
-    ($name:path, $native:ty, $size:expr, $native_size:expr, $bytes:ident) => {
-        impl HasNativeType for $name {
+macro_rules! def_native_uint {
+    ($name:ident, $native:ty, $size:expr, $native_size:expr, $bytes:ident) => {
+        impl<XW, X> HasNativeType for $name<XW, X> {
             type Native = $native;
         }
 
-        impl HasNativeWidth for $name {
+        impl<XW, X> HasNativeWidth for $name<XW, X> {
             const BYTES: Bytes = Bytes::$bytes;
             const LEN: usize = $native_size;
             type Order = SizedByteOrd<$size>;
@@ -2689,16 +2735,31 @@ macro_rules! def_native_wrapper {
     };
 }
 
-def_native_wrapper!(UintType08, u8, 1, 1, B1);
-def_native_wrapper!(UintType16, u16, 2, 2, B2);
-def_native_wrapper!(UintType24, u32, 3, 4, B3);
-def_native_wrapper!(UintType32, u32, 4, 4, B4);
-def_native_wrapper!(UintType40, u64, 5, 8, B5);
-def_native_wrapper!(UintType48, u64, 6, 8, B6);
-def_native_wrapper!(UintType56, u64, 7, 8, B7);
-def_native_wrapper!(UintType64, u64, 8, 8, B8);
-def_native_wrapper!(F32Type, f32, 4, 4, B4);
-def_native_wrapper!(F64Type, f64, 8, 8, B8);
+def_native_uint!(UintType08, u8, 1, 1, B1);
+def_native_uint!(UintType16, u16, 2, 2, B2);
+def_native_uint!(UintType24, u32, 3, 4, B3);
+def_native_uint!(UintType32, u32, 4, 4, B4);
+def_native_uint!(UintType40, u64, 5, 8, B5);
+def_native_uint!(UintType48, u64, 6, 8, B6);
+def_native_uint!(UintType56, u64, 7, 8, B7);
+def_native_uint!(UintType64, u64, 8, 8, B8);
+
+macro_rules! def_native_float {
+    ($name:path, $native:ty, $size:expr, $bytes:ident) => {
+        impl HasNativeType for $name {
+            type Native = $native;
+        }
+
+        impl HasNativeWidth for $name {
+            const BYTES: Bytes = Bytes::$bytes;
+            const LEN: usize = $size;
+            type Order = SizedByteOrd<$size>;
+        }
+    };
+}
+
+def_native_float!(F32Type, f32, 4, B4);
+def_native_float!(F64Type, f64, 8, B8);
 
 impl HasNativeType for AsciiRange {
     type Native = u64;
@@ -2710,7 +2771,7 @@ impl HasDatatype for AsciiRange {
     }
 }
 
-impl<T, const LEN: usize> HasDatatype for UintType<T, LEN> {
+impl<T, const LEN: usize, XW, X> HasDatatype for UintType<T, LEN, XW, X> {
     fn datatype_from_columns(_: &NonEmpty<Self>) -> AlphaNumType {
         AlphaNumType::Integer
     }
@@ -2750,7 +2811,7 @@ impl HasDatatype for NullMixedType {
     }
 }
 
-impl<T, const LEN: usize> FromRange for UintType<T, LEN>
+impl<T, const LEN: usize, XW, X> FromRange for UintType<T, LEN, XW, X>
 where
     T: TryFrom<Range, Error = IntRangeError<T>> + PrimInt,
     u64: From<T>,
@@ -2760,13 +2821,10 @@ where
     // TODO this is wrong
     fn from_range(range: Range, notrunc: bool) -> BiTentative<Self, Self::Error> {
         range.into_uint(notrunc).inner_into().and_tentatively(|x| {
-            Bitmask::from_native_tnt(x, notrunc)
-                .inner_into()
-                .map(|r| UintType {
-                    range: r,
-                    // TODO make default method
-                    xform: UintXform::Lin(PositiveFloat::one()),
-                })
+            Bitmask::from_native_tnt(x, notrunc).inner_into().map(|r| {
+                // TODO make default method for xform
+                UintType::new(r, UintXform::Lin(PositiveFloat::one()))
+            })
         })
     }
 }
@@ -2844,7 +2902,8 @@ impl FromRange for NullMixedType {
     }
 }
 
-impl<T, const LEN: usize> IsFixed for UintType<T, LEN>
+// TODO add scale and gain here?
+impl<T, const LEN: usize, XW, X> IsFixed for UintType<T, LEN, XW, X>
 where
     Self: HasNativeWidth,
     u64: From<T>,
@@ -2979,17 +3038,9 @@ source_from_iter!(f64, u64, FromF64);
 source_from_iter!(f64, f32, FromF64);
 source_from_iter!(f64, f64, FromF64);
 
-impl<T> AnyOrderedUintLayout<T> {
-    fn phantom_into<X>(self) -> AnyOrderedUintLayout<X> {
+impl<T, W: MightHave> AnyOrderedUintLayout<T, W, W::Wrapper<UintXform>> {
+    fn phantom_into<X>(self) -> AnyOrderedUintLayout<X, W, W::Wrapper<UintXform>> {
         match_any_uint!(self, Self, l, { l.phantom_into().into() })
-    }
-
-    fn into_endian<D>(self) -> Result<EndianLayout<AnyNullBitmask, D>, OrderedToEndianError> {
-        match_any_uint!(self, Self, l, {
-            l.phantom_into()
-                .byte_layout_try_into()
-                .map(|x| x.columns_into())
-        })
     }
 
     fn try_new(
@@ -3040,6 +3091,17 @@ impl<T> AnyOrderedUintLayout<T> {
                 })
                 .def_map_value(|x| x.into())
             })
+        })
+    }
+}
+
+impl<T> AnyOrderedUintLayout<T, IdentityFamily, Identity<UintXform>> {
+    // TODO need to try-convert the xform into an identity
+    fn into_endian<D>(self) -> Result<EndianLayout<AnyNullBitmask, D>, OrderedToEndianError> {
+        match_any_uint!(self, Self, l, {
+            l.phantom_into()
+                .byte_layout_try_into()
+                .map(|x| x.columns_into())
         })
     }
 }
@@ -3333,13 +3395,17 @@ impl InterLayoutOps<HasMeasDatatype> for DataLayout3_2 {
 }
 
 impl DataLayout3_1 {
-    pub(crate) fn into_ordered<T>(self) -> LayoutConvertResult<AnyOrderedLayout<T>> {
+    pub(crate) fn into_ordered<T>(
+        self,
+    ) -> LayoutConvertResult<AnyOrderedLayout<T, IdentityFamily, Identity<UintXform>>> {
         self.0.into_ordered()
     }
 }
 
 impl DataLayout3_2 {
-    pub(crate) fn into_ordered<T>(self) -> LayoutConvertResult<AnyOrderedLayout<T>> {
+    pub(crate) fn into_ordered<T>(
+        self,
+    ) -> LayoutConvertResult<AnyOrderedLayout<T, IdentityFamily, Identity<UintXform>>> {
         match self {
             Self::NonMixed(x) => x.into_ordered(),
             Self::Mixed(x) => x.try_into_ordered().mult_errors_into(),
@@ -3386,7 +3452,7 @@ impl DataLayout3_2 {
     }
 }
 
-impl<T> AnyOrderedLayout<T> {
+impl<T, W: MightHave> AnyOrderedLayout<T, W, W::Wrapper<UintXform>> {
     fn lookup(
         kws: &mut StdKeywords,
         conf: &StdTextReadConfig,
@@ -3430,12 +3496,12 @@ impl<T> AnyOrderedLayout<T> {
     }
 
     pub fn new_uint<U, const LEN: usize>(
-        columns: NonEmpty<UintType<U, LEN>>,
+        columns: NonEmpty<WrappedUintType<U, LEN, W>>,
         byte_layout: SizedByteOrd<LEN>,
     ) -> Self
     where
-        AnyOrderedUintLayout<T>:
-            From<FixedLayout<UintType<U, LEN>, SizedByteOrd<LEN>, T, NoMeasDatatype>>,
+        AnyOrderedUintLayout<T, W, W::Wrapper<UintXform>>:
+            From<FixedLayout<WrappedUintType<U, LEN, W>, SizedByteOrd<LEN>, T, NoMeasDatatype>>,
     {
         Self::Integer(FixedLayout::new(columns, byte_layout).into())
     }
@@ -3479,13 +3545,15 @@ impl<T> AnyOrderedLayout<T> {
         }
     }
 
-    pub(crate) fn phantom_into<X>(self) -> AnyOrderedLayout<X> {
+    pub(crate) fn phantom_into<X>(self) -> AnyOrderedLayout<X, W, W::Wrapper<UintXform>> {
         match_many_to_one!(self, Self, [Ascii, Integer, F32, F64], x, {
             x.phantom_into().into()
         })
     }
+}
 
-    pub fn into_unmixed<D>(self) -> LayoutConvertResult<NonMixedEndianLayout<D>> {
+impl<T> AnyOrderedLayout<T, IdentityFamily, Identity<UintXform>> {
+    fn into_unmixed<D>(self) -> LayoutConvertResult<NonMixedEndianLayout<D>> {
         match self {
             Self::Ascii(x) => Ok(x.phantom_into().into()),
             Self::Integer(x) => x.into_endian().map(NonMixedEndianLayout::Integer),
@@ -3588,7 +3656,9 @@ impl<D> NonMixedEndianLayout<D> {
         FixedLayout::new(ranges, endian).into()
     }
 
-    pub(crate) fn into_ordered<T>(self) -> LayoutConvertResult<AnyOrderedLayout<T>> {
+    pub(crate) fn into_ordered<T>(
+        self,
+    ) -> LayoutConvertResult<AnyOrderedLayout<T, IdentityFamily, Identity<UintXform>>> {
         match self {
             Self::Ascii(x) => Ok(x.phantom_into().into()),
             Self::Integer(x) => x.uint_try_into_ordered().map(|i| i.into()),
