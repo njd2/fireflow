@@ -40,7 +40,7 @@ impl Compensation2_0 {
     pub(crate) fn lookup<E>(
         kws: &mut StdKeywords,
         par: Par,
-    ) -> LookupTentative<OptionalValue<Self>, E> {
+    ) -> LookupTentative<MaybeValue<Self>, E> {
         // column = src measurement
         // row = target measurement
         // These are "flipped" in 2.0, where "column" goes TO the "row"

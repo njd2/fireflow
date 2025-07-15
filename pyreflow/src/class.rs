@@ -3773,7 +3773,7 @@ get_set_cloned!(
     PyCalibration3_2
 );
 
-fn any_to_opt_named_pair<'py, X>(a: Bound<'py, PyAny>) -> PyResult<(OptionalValue<Shortname>, X)>
+fn any_to_opt_named_pair<'py, X>(a: Bound<'py, PyAny>) -> PyResult<(MaybeValue<Shortname>, X)>
 where
     X: FromPyObject<'py>,
 {

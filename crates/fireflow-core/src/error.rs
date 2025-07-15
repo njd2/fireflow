@@ -710,9 +710,9 @@ impl<V, W, E> Tentative<Option<V>, W, E> {
     }
 }
 
-impl<W, E> Default for Tentative<(), W, E> {
+impl<V: Default, W, E> Default for Tentative<V, W, E> {
     fn default() -> Self {
-        Self::new1(())
+        Self::new1(V::default())
     }
 }
 

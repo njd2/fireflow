@@ -2,7 +2,7 @@ use crate::core::{AnyMetarootKeyLossError, UnitaryKeyLossError};
 use crate::error::*;
 use crate::validated::keys::*;
 
-use super::optional::*;
+use super::optional::MaybeValue;
 use super::parser::*;
 
 use chrono::{DateTime, FixedOffset};
@@ -33,15 +33,15 @@ pub struct FCSDateTime(pub DateTime<FixedOffset>);
 
 macro_rules! get_set {
     ($fn_get_naive:ident, $fn:ident, $fn_naive:ident, $in:path, $field:ident) => {
-        pub fn $field(&self) -> OptionalValue<$in> {
-            OptionalValue(self.$field)
+        pub fn $field(&self) -> MaybeValue<$in> {
+            MaybeValue(self.$field)
         }
 
         pub fn $fn_get_naive(&self) -> Option<DateTime<FixedOffset>> {
             self.$field().0.map(|x| x.0.into())
         }
 
-        pub fn $fn(&mut self, x: OptionalValue<$in>) -> DatetimesResult<()> {
+        pub fn $fn(&mut self, x: MaybeValue<$in>) -> DatetimesResult<()> {
             let tmp = self.$field;
             self.$field = x.0;
             if self.valid() {
@@ -60,8 +60,8 @@ macro_rules! get_set {
 
 impl Datetimes {
     pub fn try_new(
-        begin: OptionalValue<BeginDateTime>,
-        end: OptionalValue<EndDateTime>,
+        begin: MaybeValue<BeginDateTime>,
+        end: MaybeValue<EndDateTime>,
     ) -> DatetimesResult<Self> {
         let ret = Self {
             begin: begin.0,

@@ -2,6 +2,7 @@ use crate::error::*;
 use crate::validated::shortname::{Shortname, ShortnamePrefix};
 
 use super::index::{BoundaryIndexError, IndexError, IndexFromOne, MeasIndex};
+use super::optional::MightHave;
 
 use serde::Serialize;
 use std::cmp::Ordering;
@@ -67,44 +68,6 @@ pub struct UnsplitVec<K, V> {
 pub enum Element<U, V> {
     Center(U),
     NonCenter(V),
-}
-
-/// Encodes a type which might have something in it.
-///
-/// Intended to be used as a "type family" pattern.
-pub trait MightHave {
-    /// Concrete wrapper type which might have something
-    type Wrapper<T>: From<T>;
-
-    /// If true, the wrapper will always have a value.
-    ///
-    /// Obviously, the implementation needs to ensure this is in sync with the
-    /// meaning of Wrapper<T>.
-    const INFALLABLE: bool;
-
-    /// Consume a value and return it as a wrapped value
-    fn wrap<T>(n: T) -> Self::Wrapper<T> {
-        n.into()
-    }
-
-    /// Consume a wrapped value and possibly return its contents.
-    ///
-    /// If no contents exist, return the original input so the caller can
-    /// take back ownership.
-    fn unwrap<T>(x: Self::Wrapper<T>) -> Result<T, Self::Wrapper<T>>;
-
-    /// Borrow a wrapped value and return a new wrapper with borrowed contents.
-    fn as_ref<T>(x: &Self::Wrapper<T>) -> Self::Wrapper<&T>;
-
-    /// Consume a wrapped value and possibly return its contents.
-    fn to_opt<T>(x: Self::Wrapper<T>) -> Option<T> {
-        Self::unwrap(x).ok()
-    }
-
-    /// Borrow a wrapped value and possibly return borrowed contents.
-    fn as_opt<T>(x: &Self::Wrapper<T>) -> Option<&T> {
-        Self::to_opt(Self::as_ref(x))
-    }
 }
 
 type PairedVec<K, V> = Vec<Pair<K, V>>;

@@ -100,7 +100,7 @@ impl Scale {
         kws: &mut StdKeywords,
         i: MeasIndex,
         conf: &StdTextReadConfig,
-    ) -> LookupTentative<OptionalValue<Scale>, E> {
+    ) -> LookupTentative<MaybeValue<Scale>, E> {
         let res = Self::lookup_fixed_opt_inner(kws, i, conf.fix_log_scale_offsets);
         process_opt(res)
     }
@@ -109,7 +109,7 @@ impl Scale {
         kws: &mut StdKeywords,
         i: MeasIndex,
         conf: &StdTextReadConfig,
-    ) -> LookupTentative<OptionalValue<Scale>, DeprecatedError> {
+    ) -> LookupTentative<MaybeValue<Scale>, DeprecatedError> {
         let dd = conf.disallow_deprecated;
         let res = Self::lookup_fixed_opt_inner(kws, i, conf.fix_log_scale_offsets);
         process_opt_dep(res, Scale::std(i.into()), dd)

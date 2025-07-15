@@ -71,7 +71,7 @@ pub struct Core<A, D, O, M, T, P, N, W, L> {
     ///
     /// This is derived from $BYTEORD, $DATATYPE, $PnB, $PnR and maybe
     /// $PnDATATYPE for version 3.2.
-    layout: OptionalValue<L>,
+    layout: MaybeValue<L>,
 
     /// DATA segment (if applicable)
     data: D,
@@ -104,43 +104,43 @@ pub struct Others(pub Vec<Other>);
 #[derive(Clone, Serialize)]
 pub struct Metaroot<X> {
     /// Value of $ABRT
-    pub abrt: OptionalValue<Abrt>,
+    pub abrt: MaybeValue<Abrt>,
 
     /// Value of $COM
-    pub com: OptionalValue<Com>,
+    pub com: MaybeValue<Com>,
 
     /// Value of $CELLS
-    pub cells: OptionalValue<Cells>,
+    pub cells: MaybeValue<Cells>,
 
     /// Value of $EXP
-    pub exp: OptionalValue<Exp>,
+    pub exp: MaybeValue<Exp>,
 
     /// Value of $FIL
-    pub fil: OptionalValue<Fil>,
+    pub fil: MaybeValue<Fil>,
 
     /// Value of $INST
-    pub inst: OptionalValue<Inst>,
+    pub inst: MaybeValue<Inst>,
 
     /// Value of $LOST
-    pub lost: OptionalValue<Lost>,
+    pub lost: MaybeValue<Lost>,
 
     /// Value of $OP
-    pub op: OptionalValue<Op>,
+    pub op: MaybeValue<Op>,
 
     /// Value of $PROJ
-    pub proj: OptionalValue<Proj>,
+    pub proj: MaybeValue<Proj>,
 
     /// Value of $SMNO
-    pub smno: OptionalValue<Smno>,
+    pub smno: MaybeValue<Smno>,
 
     /// Value of $SRC
-    pub src: OptionalValue<Src>,
+    pub src: MaybeValue<Src>,
 
     /// Value of $SYS
-    pub sys: OptionalValue<Sys>,
+    pub sys: MaybeValue<Sys>,
 
     /// Value of $TR
-    tr: OptionalValue<Trigger>,
+    tr: MaybeValue<Trigger>,
 
     /// Version-specific data
     pub specific: X,
@@ -159,7 +159,7 @@ pub struct Metaroot<X> {
 #[derive(Clone, Serialize, Default)]
 pub struct CommonMeasurement {
     /// Value for $PnS
-    pub longname: OptionalValue<Longname>,
+    pub longname: MaybeValue<Longname>,
 
     /// Non standard keywords that belong to this measurement.
     ///
@@ -190,19 +190,19 @@ pub struct Optical<X> {
     pub common: CommonMeasurement,
 
     /// Value for $PnF
-    pub filter: OptionalValue<Filter>,
+    pub filter: MaybeValue<Filter>,
 
     /// Value for $PnO
-    pub power: OptionalValue<Power>,
+    pub power: MaybeValue<Power>,
 
     /// Value for $PnD
-    pub detector_type: OptionalValue<DetectorType>,
+    pub detector_type: MaybeValue<DetectorType>,
 
     /// Value for $PnP
-    pub percent_emitted: OptionalValue<PercentEmitted>,
+    pub percent_emitted: MaybeValue<PercentEmitted>,
 
     /// Value for $PnV
-    pub detector_voltage: OptionalValue<DetectorVoltage>,
+    pub detector_voltage: MaybeValue<DetectorVoltage>,
 
     /// Version specific data
     pub specific: X,
@@ -387,16 +387,16 @@ pub struct InnerMetaroot2_0 {
     // /// Value of $BYTEORD
     // byteord: ByteOrd,
     /// Value of $CYT
-    pub cyt: OptionalValue<Cyt>,
+    pub cyt: MaybeValue<Cyt>,
 
     /// Compensation matrix derived from 'DFCnTOm' key/value pairs
-    comp: OptionalValue<Compensation2_0>,
+    comp: MaybeValue<Compensation2_0>,
 
     /// Values of $BTIM/ETIM/$DATE
     pub timestamps: Timestamps2_0,
 
     /// Values of $Gm*/$RnI/$RnW/$GATING/$GATE
-    applied_gates: OptionalValue<AppliedGates2_0>,
+    applied_gates: MaybeValue<AppliedGates2_0>,
 }
 
 /// Metaroot fields specific to version 3.0
@@ -408,25 +408,25 @@ pub struct InnerMetaroot3_0 {
     // /// Value of $BYTEORD
     // byteord: ByteOrd,
     /// Value of $CYT
-    pub cyt: OptionalValue<Cyt>,
+    pub cyt: MaybeValue<Cyt>,
 
     /// Value of $COMP
-    comp: OptionalValue<Compensation3_0>,
+    comp: MaybeValue<Compensation3_0>,
 
     /// Values of $BTIM/ETIM/$DATE
     pub timestamps: Timestamps3_0,
 
     /// Value of $CYTSN
-    pub cytsn: OptionalValue<Cytsn>,
+    pub cytsn: MaybeValue<Cytsn>,
 
     /// Value of $UNICODE
-    pub unicode: OptionalValue<Unicode>,
+    pub unicode: MaybeValue<Unicode>,
 
     /// Aggregated values for $CS* keywords
-    pub subset: OptionalValue<SubsetData>,
+    pub subset: MaybeValue<SubsetData>,
 
     /// Values of $Gm*/$RnI/$RnW/$GATING/$GATE
-    applied_gates: OptionalValue<AppliedGates3_0>,
+    applied_gates: MaybeValue<AppliedGates3_0>,
 }
 
 /// Metaroot fields specific to version 3.1
@@ -438,16 +438,16 @@ pub struct InnerMetaroot3_1 {
     // /// Value of $BYTEORD
     // pub byteord: Endian,
     /// Value of $CYT
-    pub cyt: OptionalValue<Cyt>,
+    pub cyt: MaybeValue<Cyt>,
 
     /// Values of $BTIM/ETIM/$DATE
     pub timestamps: Timestamps3_1,
 
     /// Value of $CYTSN
-    pub cytsn: OptionalValue<Cytsn>,
+    pub cytsn: MaybeValue<Cytsn>,
 
     /// Value of $SPILLOVER
-    spillover: OptionalValue<Spillover>,
+    spillover: MaybeValue<Spillover>,
 
     /// Values of $LAST_MODIFIED/$LAST_MODIFIER/$ORIGINALITY
     pub modification: ModificationData,
@@ -456,13 +456,13 @@ pub struct InnerMetaroot3_1 {
     pub plate: PlateData,
 
     /// Value of $VOL
-    pub vol: OptionalValue<Vol>,
+    pub vol: MaybeValue<Vol>,
 
     /// Aggregated values for $CS* keywords
-    pub subset: OptionalValue<SubsetData>,
+    pub subset: MaybeValue<SubsetData>,
 
     /// Values of $Gm*/$RnI/$RnW/$GATING/$GATE
-    applied_gates: OptionalValue<AppliedGates3_0>,
+    applied_gates: MaybeValue<AppliedGates3_0>,
 }
 
 /// Metaroot fields specific to version 3.2
@@ -480,10 +480,10 @@ pub struct InnerMetaroot3_2 {
     pub cyt: Cyt,
 
     /// Value of $SPILLOVER
-    spillover: OptionalValue<Spillover>,
+    spillover: MaybeValue<Spillover>,
 
     /// Value of $CYTSN
-    pub cytsn: OptionalValue<Cytsn>,
+    pub cytsn: MaybeValue<Cytsn>,
 
     /// Values of $LAST_MODIFIED/$LAST_MODIFIER/$ORIGINALITY
     // TODO it makes sense to verify this isn't before the file was created
@@ -493,7 +493,7 @@ pub struct InnerMetaroot3_2 {
     pub plate: PlateData,
 
     /// Value of $VOL
-    pub vol: OptionalValue<Vol>,
+    pub vol: MaybeValue<Vol>,
 
     /// Values of $CARRIERID/$CARRIERTYPE/$LOCATIONID
     pub carrier: CarrierData,
@@ -502,10 +502,10 @@ pub struct InnerMetaroot3_2 {
     pub unstained: UnstainedData,
 
     /// Value of $FLOWRATE
-    pub flowrate: OptionalValue<Flowrate>,
+    pub flowrate: MaybeValue<Flowrate>,
 
     /// Values of $RnI/$RnW/$GATING
-    applied_gates: OptionalValue<AppliedGates3_2>,
+    applied_gates: MaybeValue<AppliedGates3_2>,
 }
 
 /// Temporal measurement fields specific to version 2.0
@@ -515,7 +515,7 @@ pub struct InnerTemporal2_0 {
     ///
     /// Unlike subsequent versions, included here because it is optional rather
     /// than required and constant.
-    pub scale: OptionalValue<TemporalScale>,
+    pub scale: MaybeValue<TemporalScale>,
 
     /// Values of $Pkn/$PKNn
     pub peak: PeakData,
@@ -542,7 +542,7 @@ pub struct InnerTemporal3_1 {
     pub timestep: Timestep,
 
     /// Value for $PnDISPLAY
-    pub display: OptionalValue<Display>,
+    pub display: MaybeValue<Display>,
 
     /// Values of $Pkn/$PKNn
     pub peak: PeakData,
@@ -557,20 +557,20 @@ pub struct InnerTemporal3_2 {
     pub timestep: Timestep,
 
     /// Value for $PnDISPLAY
-    pub display: OptionalValue<Display>,
+    pub display: MaybeValue<Display>,
 
     /// Value for $PnTYPE
-    pub measurement_type: OptionalValue<TemporalType>,
+    pub measurement_type: MaybeValue<TemporalType>,
 }
 
 /// Optical measurement fields specific to version 2.0
 #[derive(Clone, Serialize, Default)]
 pub struct InnerOptical2_0 {
     /// Value for $PnE
-    pub scale: OptionalValue<Scale>,
+    pub scale: MaybeValue<Scale>,
 
     /// Value for $PnL
-    pub wavelength: OptionalValue<Wavelength>,
+    pub wavelength: MaybeValue<Wavelength>,
 
     /// Values of $Pkn/$PKNn
     pub peak: PeakData,
@@ -583,10 +583,10 @@ pub struct InnerOptical3_0 {
     pub scale: Scale,
 
     /// Value for $PnL
-    pub wavelength: OptionalValue<Wavelength>,
+    pub wavelength: MaybeValue<Wavelength>,
 
     /// Value for $PnG
-    pub gain: OptionalValue<Gain>,
+    pub gain: MaybeValue<Gain>,
 
     /// Values of $Pkn/$PKNn
     pub peak: PeakData,
@@ -599,16 +599,16 @@ pub struct InnerOptical3_1 {
     pub scale: Scale,
 
     /// Value for $PnL
-    pub wavelengths: OptionalValue<Wavelengths>,
+    pub wavelengths: MaybeValue<Wavelengths>,
 
     /// Value for $PnG
-    pub gain: OptionalValue<Gain>,
+    pub gain: MaybeValue<Gain>,
 
     /// Value for $PnCALIBRATION
-    pub calibration: OptionalValue<Calibration3_1>,
+    pub calibration: MaybeValue<Calibration3_1>,
 
     /// Value for $PnDISPLAY
-    pub display: OptionalValue<Display>,
+    pub display: MaybeValue<Display>,
 
     /// Values of $Pkn/$PKNn
     pub peak: PeakData,
@@ -621,61 +621,61 @@ pub struct InnerOptical3_2 {
     pub scale: Scale,
 
     /// Value for $PnL
-    pub wavelengths: OptionalValue<Wavelengths>,
+    pub wavelengths: MaybeValue<Wavelengths>,
 
     /// Value for $PnG
-    pub gain: OptionalValue<Gain>,
+    pub gain: MaybeValue<Gain>,
 
     /// Value for $PnCALIBRATION
-    pub calibration: OptionalValue<Calibration3_2>,
+    pub calibration: MaybeValue<Calibration3_2>,
 
     /// Value for $PnDISPLAY
-    pub display: OptionalValue<Display>,
+    pub display: MaybeValue<Display>,
 
     /// Value for $PnANALYTE
-    pub analyte: OptionalValue<Analyte>,
+    pub analyte: MaybeValue<Analyte>,
 
     /// Value for $PnFEATURE
-    pub feature: OptionalValue<Feature>,
+    pub feature: MaybeValue<Feature>,
 
     /// Value for $PnTYPE
-    pub measurement_type: OptionalValue<OpticalType>,
+    pub measurement_type: MaybeValue<OpticalType>,
 
     /// Value for $PnTAG
-    pub tag: OptionalValue<Tag>,
+    pub tag: MaybeValue<Tag>,
 
     /// Value for $PnDET
-    pub detector_name: OptionalValue<DetectorName>,
+    pub detector_name: MaybeValue<DetectorName>,
 }
 
 /// The values for $Gm* keywords (2.0-3.1)
 #[derive(Clone, Default, Serialize)]
 pub struct GatedMeasurement {
     /// Value for $GmE
-    pub scale: OptionalValue<GateScale>,
+    pub scale: MaybeValue<GateScale>,
 
     /// Value for $GmF
-    pub filter: OptionalValue<GateFilter>,
+    pub filter: MaybeValue<GateFilter>,
 
     /// Value for $GmN
     ///
     /// Unlike $PnN, this is not validated to be without commas
-    pub shortname: OptionalValue<GateShortname>,
+    pub shortname: MaybeValue<GateShortname>,
 
     /// Value for $GmP
-    pub percent_emitted: OptionalValue<GatePercentEmitted>,
+    pub percent_emitted: MaybeValue<GatePercentEmitted>,
 
     /// Value for $GmR
-    pub range: OptionalValue<GateRange>,
+    pub range: MaybeValue<GateRange>,
 
     /// Value for $GmS
-    pub longname: OptionalValue<GateLongname>,
+    pub longname: MaybeValue<GateLongname>,
 
     /// Value for $GmT
-    pub detector_type: OptionalValue<GateDetectorType>,
+    pub detector_type: MaybeValue<GateDetectorType>,
 
     /// Value for $GmV
-    pub detector_voltage: OptionalValue<GateDetectorVoltage>,
+    pub detector_voltage: MaybeValue<GateDetectorVoltage>,
 }
 
 /// The $GATING/$RnI/$RnW/$Gn* keywords in a unified bundle (2.0)
@@ -759,10 +759,10 @@ pub struct BivariateRegion<I> {
 #[derive(Clone, Default, Serialize)]
 pub struct PeakData {
     /// Value of $Pkn
-    pub bin: OptionalValue<PeakBin>,
+    pub bin: MaybeValue<PeakBin>,
 
     /// Value of $PkNn
-    pub size: OptionalValue<PeakNumber>,
+    pub size: MaybeValue<PeakNumber>,
 }
 
 /// A bundle for $CSMODE, $CSVBITS, and $CSVnFLAG (3.0, 3.1)
@@ -776,41 +776,41 @@ pub struct PeakData {
 #[derive(Clone, Default)]
 pub struct SubsetData {
     /// Value of $CSBITS if given
-    pub bits: OptionalValue<CSVBits>,
+    pub bits: MaybeValue<CSVBits>,
 
     /// Values of $CSVnFLAG if given, with length equal to $CSMODE
-    pub flags: NonEmpty<OptionalValue<CSVFlag>>,
+    pub flags: NonEmpty<MaybeValue<CSVFlag>>,
 }
 
 /// A bundle for $ORIGINALITY, $LAST_MODIFIER, and $LAST_MODIFIED (3.1+)
 #[derive(Clone, Serialize, Default)]
 pub struct ModificationData {
-    pub last_modifier: OptionalValue<LastModifier>,
-    pub last_modified: OptionalValue<ModifiedDateTime>,
-    pub originality: OptionalValue<Originality>,
+    pub last_modifier: MaybeValue<LastModifier>,
+    pub last_modified: MaybeValue<ModifiedDateTime>,
+    pub originality: MaybeValue<Originality>,
 }
 
 /// A bundle for $PLATEID, $PLATENAME, and $WELLID (3.1+)
 #[derive(Clone, Serialize, Default)]
 pub struct PlateData {
-    pub plateid: OptionalValue<Plateid>,
-    pub platename: OptionalValue<Platename>,
-    pub wellid: OptionalValue<Wellid>,
+    pub plateid: MaybeValue<Plateid>,
+    pub platename: MaybeValue<Platename>,
+    pub wellid: MaybeValue<Wellid>,
 }
 
 /// A bundle for $UNSTAINEDCENTERS and $UNSTAINEDINFO (3.2+)
 #[derive(Clone, Serialize, Default)]
 pub struct UnstainedData {
-    unstainedcenters: OptionalValue<UnstainedCenters>,
-    pub unstainedinfo: OptionalValue<UnstainedInfo>,
+    unstainedcenters: MaybeValue<UnstainedCenters>,
+    pub unstainedinfo: MaybeValue<UnstainedInfo>,
 }
 
 /// A bundle for $CARRIERID, $CARRIERTYPE, $LOCATIONID (3.2+)
 #[derive(Clone, Serialize, Default)]
 pub struct CarrierData {
-    pub carrierid: OptionalValue<Carrierid>,
-    pub carriertype: OptionalValue<Carriertype>,
-    pub locationid: OptionalValue<Locationid>,
+    pub carrierid: MaybeValue<Carrierid>,
+    pub carriertype: MaybeValue<Carriertype>,
+    pub locationid: MaybeValue<Locationid>,
 }
 
 pub type Temporal2_0 = Temporal<InnerTemporal2_0>;
@@ -823,10 +823,10 @@ pub type Optical3_0 = Optical<InnerOptical3_0>;
 pub type Optical3_1 = Optical<InnerOptical3_1>;
 pub type Optical3_2 = Optical<InnerOptical3_2>;
 
-pub type Measurements2_0 = Measurements<OptionalKwFamily, InnerTemporal2_0, InnerOptical2_0>;
-pub type Measurements3_0 = Measurements<OptionalKwFamily, InnerTemporal3_0, InnerOptical3_0>;
-pub type Measurements3_1 = Measurements<IdentityFamily, InnerTemporal3_1, InnerOptical3_1>;
-pub type Measurements3_2 = Measurements<IdentityFamily, InnerTemporal3_2, InnerOptical3_2>;
+pub type Measurements2_0 = Measurements<MaybeFamily, InnerTemporal2_0, InnerOptical2_0>;
+pub type Measurements3_0 = Measurements<MaybeFamily, InnerTemporal3_0, InnerOptical3_0>;
+pub type Measurements3_1 = Measurements<AlwaysFamily, InnerTemporal3_1, InnerOptical3_1>;
+pub type Measurements3_2 = Measurements<AlwaysFamily, InnerTemporal3_2, InnerOptical3_2>;
 
 pub type Metaroot2_0 = Metaroot<InnerMetaroot2_0>;
 pub type Metaroot3_0 = Metaroot<InnerMetaroot3_0>;
@@ -846,8 +846,8 @@ pub type Core2_0<A, D, O> = Core<
     InnerMetaroot2_0,
     InnerTemporal2_0,
     InnerOptical2_0,
-    OptionalKwFamily,
-    OptionalValue<Shortname>,
+    MaybeFamily,
+    MaybeValue<Shortname>,
     DataLayout2_0,
 >;
 pub type Core3_0<A, D, O> = Core<
@@ -857,8 +857,8 @@ pub type Core3_0<A, D, O> = Core<
     InnerMetaroot3_0,
     InnerTemporal3_0,
     InnerOptical3_0,
-    OptionalKwFamily,
-    OptionalValue<Shortname>,
+    MaybeFamily,
+    MaybeValue<Shortname>,
     DataLayout3_0,
 >;
 pub type Core3_1<A, D, O> = Core<
@@ -868,8 +868,8 @@ pub type Core3_1<A, D, O> = Core<
     InnerMetaroot3_1,
     InnerTemporal3_1,
     InnerOptical3_1,
-    IdentityFamily,
-    Identity<Shortname>,
+    AlwaysFamily,
+    AlwaysValue<Shortname>,
     DataLayout3_1,
 >;
 pub type Core3_2<A, D, O> = Core<
@@ -879,8 +879,8 @@ pub type Core3_2<A, D, O> = Core<
     InnerMetaroot3_2,
     InnerTemporal3_2,
     InnerOptical3_2,
-    IdentityFamily,
-    Identity<Shortname>,
+    AlwaysFamily,
+    AlwaysValue<Shortname>,
     DataLayout3_2,
 >;
 
@@ -894,10 +894,10 @@ pub type CoreDataset3_0 = Core3_0<Analysis, FCSDataFrame, Others>;
 pub type CoreDataset3_1 = Core3_1<Analysis, FCSDataFrame, Others>;
 pub type CoreDataset3_2 = Core3_2<Analysis, FCSDataFrame, Others>;
 
-type RawInput2_0 = RawInput<OptionalKwFamily, Temporal2_0, Optical2_0>;
-type RawInput3_0 = RawInput<OptionalKwFamily, Temporal3_0, Optical3_0>;
-type RawInput3_1 = RawInput<IdentityFamily, Temporal3_1, Optical3_1>;
-type RawInput3_2 = RawInput<IdentityFamily, Temporal3_2, Optical3_2>;
+type RawInput2_0 = RawInput<MaybeFamily, Temporal2_0, Optical2_0>;
+type RawInput3_0 = RawInput<MaybeFamily, Temporal3_0, Optical3_0>;
+type RawInput3_1 = RawInput<AlwaysFamily, Temporal3_1, Optical3_1>;
+type RawInput3_2 = RawInput<AlwaysFamily, Temporal3_2, Optical3_2>;
 
 /// Reader for ANALYSIS segment
 pub struct AnalysisReader {
@@ -3229,7 +3229,7 @@ impl<M, T, P, N, W, L> CoreTEXT<M, T, P, N, W, L> {
     pub(crate) fn new_unchecked(
         metaroot: Metaroot<M>,
         measurements: NamedVec<N, W, Temporal<T>, Optical<P>>,
-        layout: OptionalValue<L>,
+        layout: MaybeValue<L>,
     ) -> Self {
         Self {
             metaroot,
@@ -3783,7 +3783,7 @@ impl UnstainedData {
 }
 
 impl SubsetData {
-    fn lookup<E>(kws: &mut StdKeywords) -> LookupTentative<OptionalValue<Self>, E> {
+    fn lookup<E>(kws: &mut StdKeywords) -> LookupTentative<MaybeValue<Self>, E> {
         Self::lookup_inner(
             kws,
             CSMode::lookup_opt,
@@ -3808,11 +3808,11 @@ impl SubsetData {
         lookup_mode: F0,
         lookup_flag: F1,
         lookup_bits: F2,
-    ) -> LookupTentative<OptionalValue<Self>, E>
+    ) -> LookupTentative<MaybeValue<Self>, E>
     where
-        F0: FnOnce(&mut StdKeywords) -> LookupTentative<OptionalValue<CSMode>, E>,
-        F1: Fn(&mut StdKeywords, IndexFromOne) -> LookupTentative<OptionalValue<CSVFlag>, E>,
-        F2: Fn(&mut StdKeywords) -> LookupTentative<OptionalValue<CSVBits>, E>,
+        F0: FnOnce(&mut StdKeywords) -> LookupTentative<MaybeValue<CSMode>, E>,
+        F1: Fn(&mut StdKeywords, IndexFromOne) -> LookupTentative<MaybeValue<CSVFlag>, E>,
+        F2: Fn(&mut StdKeywords) -> LookupTentative<MaybeValue<CSVBits>, E>,
     {
         lookup_mode(kws).and_tentatively(|m| {
             if let Some(n) = m.0 {
@@ -3927,7 +3927,7 @@ impl AppliedGates2_0 {
     fn lookup(
         kws: &mut StdKeywords,
         conf: &StdTextReadConfig,
-    ) -> LookupTentative<OptionalValue<Self>, DeprecatedError> {
+    ) -> LookupTentative<MaybeValue<Self>, DeprecatedError> {
         let ag = GatingRegions::lookup(kws, Gating::lookup_opt, Region::lookup);
         let gm = GatedMeasurements::lookup(kws, conf);
         ag.zip(gm).and_tentatively(|(x, y)| {
@@ -3977,7 +3977,7 @@ impl AppliedGates3_0 {
     fn lookup<E>(
         kws: &mut StdKeywords,
         conf: &StdTextReadConfig,
-    ) -> LookupTentative<OptionalValue<Self>, E> {
+    ) -> LookupTentative<MaybeValue<Self>, E> {
         Self::lookup_inner(
             kws,
             |k| GatingRegions::lookup(k, Gating::lookup_opt, Region::lookup),
@@ -3988,7 +3988,7 @@ impl AppliedGates3_0 {
     fn lookup_dep(
         kws: &mut StdKeywords,
         conf: &StdTextReadConfig,
-    ) -> LookupTentative<OptionalValue<Self>, DeprecatedError> {
+    ) -> LookupTentative<MaybeValue<Self>, DeprecatedError> {
         let dd = conf.disallow_deprecated;
         Self::lookup_inner(
             kws,
@@ -4007,7 +4007,7 @@ impl AppliedGates3_0 {
         kws: &mut StdKeywords,
         lookup_regions: F0,
         lookup_meas: F1,
-    ) -> LookupTentative<OptionalValue<Self>, E>
+    ) -> LookupTentative<MaybeValue<Self>, E>
     where
         F0: FnOnce(&mut StdKeywords) -> LookupOptional<GatingRegions<MeasOrGateIndex>, E>,
         F1: FnOnce(&mut StdKeywords) -> LookupOptional<GatedMeasurements, E>,
@@ -4121,7 +4121,7 @@ impl AppliedGates3_2 {
     fn lookup(
         kws: &mut StdKeywords,
         disallow_deprecated: bool,
-    ) -> LookupTentative<OptionalValue<Self>, DeprecatedError> {
+    ) -> LookupTentative<MaybeValue<Self>, DeprecatedError> {
         GatingRegions::lookup(
             kws,
             |k| Gating::lookup_opt_dep(k, disallow_deprecated),
@@ -4251,10 +4251,10 @@ impl<I> GatingRegions<I> {
         kws: &mut StdKeywords,
         lookup_gating: F0,
         lookup_region: F1,
-    ) -> LookupTentative<OptionalValue<Self>, E>
+    ) -> LookupTentative<MaybeValue<Self>, E>
     where
-        F0: Fn(&mut StdKeywords) -> LookupTentative<OptionalValue<Gating>, E>,
-        F1: Fn(&mut StdKeywords, RegionIndex) -> LookupTentative<OptionalValue<Region<I>>, E>,
+        F0: Fn(&mut StdKeywords) -> LookupTentative<MaybeValue<Gating>, E>,
+        F1: Fn(&mut StdKeywords, RegionIndex) -> LookupTentative<MaybeValue<Region<I>>, E>,
     {
         lookup_gating(kws)
             .and_tentatively(|maybe| {
@@ -4320,7 +4320,7 @@ impl<I> Region<I> {
         }
     }
 
-    fn lookup<E>(kws: &mut StdKeywords, i: RegionIndex) -> LookupTentative<OptionalValue<Self>, E>
+    fn lookup<E>(kws: &mut StdKeywords, i: RegionIndex) -> LookupTentative<MaybeValue<Self>, E>
     where
         I: FromStr,
         I: fmt::Display,
@@ -4338,7 +4338,7 @@ impl<I> Region<I> {
         kws: &mut StdKeywords,
         i: RegionIndex,
         disallow_dep: bool,
-    ) -> LookupTentative<OptionalValue<Self>, DeprecatedError>
+    ) -> LookupTentative<MaybeValue<Self>, DeprecatedError>
     where
         I: FromStr,
         I: fmt::Display,
@@ -4357,16 +4357,13 @@ impl<I> Region<I> {
         i: RegionIndex,
         lookup_index: F0,
         lookup_window: F1,
-    ) -> LookupTentative<OptionalValue<Self>, E>
+    ) -> LookupTentative<MaybeValue<Self>, E>
     where
         F0: FnOnce(
             &mut StdKeywords,
             IndexFromOne,
-        ) -> LookupTentative<OptionalValue<RegionGateIndex<I>>, E>,
-        F1: FnOnce(
-            &mut StdKeywords,
-            IndexFromOne,
-        ) -> LookupTentative<OptionalValue<RegionWindow>, E>,
+        ) -> LookupTentative<MaybeValue<RegionGateIndex<I>>, E>,
+        F1: FnOnce(&mut StdKeywords, IndexFromOne) -> LookupTentative<MaybeValue<RegionWindow>, E>,
         I: FromStr,
         I: fmt::Display,
         ParseOptKeyWarning: From<<RegionGateIndex<I> as FromStr>::Err>,
@@ -4515,14 +4512,14 @@ impl GatedMeasurements {
     fn lookup<E>(
         kws: &mut StdKeywords,
         conf: &StdTextReadConfig,
-    ) -> LookupTentative<OptionalValue<Self>, E> {
+    ) -> LookupTentative<MaybeValue<Self>, E> {
         Self::lookup_inner(kws, Gate::lookup_opt, GatedMeasurement::lookup, conf)
     }
 
     fn lookup_dep(
         kws: &mut StdKeywords,
         conf: &StdTextReadConfig,
-    ) -> LookupTentative<OptionalValue<Self>, DeprecatedError> {
+    ) -> LookupTentative<MaybeValue<Self>, DeprecatedError> {
         let dd = conf.disallow_deprecated;
         Self::lookup_inner(
             kws,
@@ -4537,7 +4534,7 @@ impl GatedMeasurements {
         lookup_gate: F0,
         lookup_meas: F1,
         conf: &StdTextReadConfig,
-    ) -> LookupTentative<OptionalValue<Self>, E>
+    ) -> LookupTentative<MaybeValue<Self>, E>
     where
         F0: FnOnce(&mut StdKeywords) -> LookupOptional<Gate, E>,
         F1: Fn(
@@ -4729,65 +4726,6 @@ impl PeakData {
     }
 }
 
-#[derive(Clone, Serialize)]
-pub struct OptionalKwFamily;
-
-impl MightHave for OptionalKwFamily {
-    type Wrapper<T> = OptionalValue<T>;
-    const INFALLABLE: bool = false;
-
-    fn unwrap<T>(x: Self::Wrapper<T>) -> Result<T, Self::Wrapper<T>> {
-        x.0.ok_or(None.into())
-    }
-
-    fn as_ref<T>(x: &Self::Wrapper<T>) -> Self::Wrapper<&T> {
-        x.as_ref()
-    }
-}
-
-#[derive(Clone, Serialize)]
-pub struct IdentityFamily;
-
-impl MightHave for IdentityFamily {
-    type Wrapper<T> = Identity<T>;
-    const INFALLABLE: bool = true;
-
-    fn unwrap<T>(x: Self::Wrapper<T>) -> Result<T, Self::Wrapper<T>> {
-        Ok(x.0)
-    }
-
-    fn as_ref<T>(x: &Self::Wrapper<T>) -> Self::Wrapper<&T> {
-        Identity(&x.0)
-    }
-}
-
-impl<T> From<T> for Identity<T> {
-    fn from(value: T) -> Self {
-        Identity(value)
-    }
-}
-
-impl<T> From<T> for OptionalValue<T> {
-    fn from(value: T) -> Self {
-        Some(value).into()
-    }
-}
-
-impl<T> TryFrom<OptionalValue<T>> for Identity<T> {
-    type Error = OptionalKwToIdentityError;
-    fn try_from(value: OptionalValue<T>) -> Result<Self, Self::Error> {
-        value.0.ok_or(OptionalKwToIdentityError).map(Identity)
-    }
-}
-
-// This will never really fail but is implemented for symmetry with its inverse
-impl<T> TryFrom<Identity<T>> for OptionalValue<T> {
-    type Error = Infallible;
-    fn try_from(value: Identity<T>) -> Result<Self, Infallible> {
-        Ok(Some(value.0).into())
-    }
-}
-
 impl From<FCSTime> for FCSTime60 {
     fn from(value: FCSTime) -> Self {
         Self(value.0)
@@ -4855,9 +4793,9 @@ impl From<Calibration3_2> for Calibration3_1 {
 }
 
 fn convert_wavelengths(
-    w: OptionalValue<Wavelengths>,
+    w: MaybeValue<Wavelengths>,
     force: bool,
-) -> Tentative<OptionalValue<Wavelength>, WavelengthsLossError, WavelengthsLossError> {
+) -> Tentative<MaybeValue<Wavelength>, WavelengthsLossError, WavelengthsLossError> {
     w.0.map(|x| x.into_wavelength(!force))
         .map_or(Tentative::new1(None), |tnt| tnt.map(Some))
         .map(|x| x.into())
@@ -5553,7 +5491,7 @@ impl ConvertFromMetaroot<InnerMetaroot3_1> for InnerMetaroot3_2 {
     }
 }
 
-fn check_indexed_key_transfer<T, E>(x: &OptionalValue<T>, i: IndexFromOne) -> Result<(), E>
+fn check_indexed_key_transfer<T, E>(x: &MaybeValue<T>, i: IndexFromOne) -> Result<(), E>
 where
     E: From<IndexedKeyLossError<T>>,
 {
@@ -5578,7 +5516,7 @@ fn check_optical_keys_transfer<X>(
 }
 
 fn check_indexed_key_transfer_own<T, E>(
-    x: OptionalValue<T>,
+    x: MaybeValue<T>,
     i: IndexFromOne,
     lossless: bool,
 ) -> BiTentative<(), E>
@@ -5593,7 +5531,7 @@ where
 }
 
 fn check_key_transfer<T>(
-    x: OptionalValue<T>,
+    x: MaybeValue<T>,
     lossless: bool,
 ) -> Tentative<(), AnyMetarootKeyLossError, AnyMetarootKeyLossError>
 where
@@ -6814,7 +6752,7 @@ impl LookupMetaroot for InnerMetaroot3_1 {
         kws: &mut StdKeywords,
         i: MeasIndex,
     ) -> LookupResult<<Self::Name as MightHave>::Wrapper<Shortname>> {
-        Shortname::lookup_req(kws, i.into()).map(|x| x.map(Identity))
+        Shortname::lookup_req(kws, i.into()).map(|x| x.map(AlwaysValue))
     }
 
     fn lookup_specific(
@@ -6872,7 +6810,7 @@ impl LookupMetaroot for InnerMetaroot3_2 {
         kws: &mut StdKeywords,
         i: MeasIndex,
     ) -> LookupResult<<Self::Name as MightHave>::Wrapper<Shortname>> {
-        Shortname::lookup_req(kws, i.into()).map(|x| x.map(Identity))
+        Shortname::lookup_req(kws, i.into()).map(|x| x.map(AlwaysValue))
     }
 
     fn lookup_specific(
@@ -6936,7 +6874,7 @@ impl VersionedMetaroot for InnerMetaroot2_0 {
     type Ver = Version2_0;
     type Optical = InnerOptical2_0;
     type Temporal = InnerTemporal2_0;
-    type Name = OptionalKwFamily;
+    type Name = MaybeFamily;
 
     fn as_unstainedcenters(&self) -> Option<&UnstainedCenters> {
         None
@@ -7019,7 +6957,7 @@ impl VersionedMetaroot for InnerMetaroot3_0 {
     type Ver = Version3_0;
     type Optical = InnerOptical3_0;
     type Temporal = InnerTemporal3_0;
-    type Name = OptionalKwFamily;
+    type Name = MaybeFamily;
 
     fn as_unstainedcenters(&self) -> Option<&UnstainedCenters> {
         None
@@ -7114,7 +7052,7 @@ impl VersionedMetaroot for InnerMetaroot3_1 {
     type Ver = Version3_1;
     type Optical = InnerOptical3_1;
     type Temporal = InnerTemporal3_1;
-    type Name = IdentityFamily;
+    type Name = AlwaysFamily;
 
     fn as_unstainedcenters(&self) -> Option<&UnstainedCenters> {
         None
@@ -7214,7 +7152,7 @@ impl VersionedMetaroot for InnerMetaroot3_2 {
     type Ver = Version3_2;
     type Optical = InnerOptical3_2;
     type Temporal = InnerTemporal3_2;
-    type Name = IdentityFamily;
+    type Name = AlwaysFamily;
 
     fn as_unstainedcenters(&self) -> Option<&UnstainedCenters> {
         self.unstained.unstainedcenters.as_ref_opt()
@@ -7591,14 +7529,6 @@ pub struct BlankShortnames;
 impl fmt::Display for BlankShortnames {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "Some $PnN are blank and could not be converted",)
-    }
-}
-
-pub struct OptionalKwToIdentityError;
-
-impl fmt::Display for OptionalKwToIdentityError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, "optional keyword value is blank",)
     }
 }
 

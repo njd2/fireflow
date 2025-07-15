@@ -1,7 +1,7 @@
 use crate::error::*;
 use crate::validated::keys::*;
 
-use super::optional::*;
+use super::optional::MaybeValue;
 use super::parser::*;
 
 use chrono::{NaiveDate, NaiveTime, Timelike};
@@ -51,8 +51,8 @@ pub struct FCSDate(pub NaiveDate);
 
 macro_rules! get_set {
     ($fn_get_naive:ident, $fn:ident, $fn_naive:ident, $in:path, $in_naive:path, $field:ident) => {
-        pub fn $field(&self) -> OptionalValue<$in> {
-            OptionalValue(self.$field)
+        pub fn $field(&self) -> MaybeValue<$in> {
+            MaybeValue(self.$field)
         }
 
         pub fn $fn_get_naive(&self) -> Option<$in_naive>
@@ -62,7 +62,7 @@ macro_rules! get_set {
             self.$field().0.map(|x| x.into())
         }
 
-        pub fn $fn(&mut self, x: OptionalValue<$in>) -> TimestampsResult<()> {
+        pub fn $fn(&mut self, x: MaybeValue<$in>) -> TimestampsResult<()> {
             let tmp = self.$field;
             self.$field = x.0;
             if self.valid() {
@@ -88,9 +88,9 @@ where
     X: Copy,
 {
     pub fn new(
-        btim: OptionalValue<Btim<X>>,
-        etim: OptionalValue<Etim<X>>,
-        date: OptionalValue<FCSDate>,
+        btim: MaybeValue<Btim<X>>,
+        etim: MaybeValue<Etim<X>>,
+        date: MaybeValue<FCSDate>,
     ) -> TimestampsResult<Self> {
         let ret = Self {
             btim: btim.0,
@@ -182,9 +182,9 @@ where
     }
 
     fn process_lookup<E>(
-        b: LookupTentative<OptionalValue<Btim<X>>, E>,
-        e: LookupTentative<OptionalValue<Etim<X>>, E>,
-        d: LookupTentative<OptionalValue<FCSDate>, E>,
+        b: LookupTentative<MaybeValue<Btim<X>>, E>,
+        e: LookupTentative<MaybeValue<Etim<X>>, E>,
+        d: LookupTentative<MaybeValue<FCSDate>, E>,
     ) -> LookupTentative<Self, E> {
         b.zip3(e, d).and_tentatively(|(btim, etim, date)| {
             Timestamps::new(btim, etim, date)

@@ -58,11 +58,12 @@ use crate::text::byteord::*;
 use crate::text::float_decimal::{FloatDecimal, FloatToDecimalError, HasFloatBounds};
 use crate::text::index::{IndexFromOne, MeasIndex};
 use crate::text::keywords::*;
-use crate::text::named_vec::MightHave;
-use crate::text::optional::{ClearOptional, Identity, OptionalValue};
+use crate::text::optional::{
+    AlwaysFamily, AlwaysValue, ClearOptional, MaybeFamily, MaybeValue, MightHave, NeverValue,
+};
 use crate::text::parser::*;
 use crate::text::ranged_float::PositiveFloat;
-use crate::text::scale::LogScale;
+use crate::text::scale::{LogScale, Scale};
 use crate::validated::ascii_range;
 use crate::validated::ascii_range::{AsciiRange, Chars};
 use crate::validated::bitmask::{Bitmask, BitmaskError};
@@ -95,16 +96,14 @@ use std::str;
 #[delegate(LayoutOps<'a, T>, generics = "'a, T")]
 #[delegate(InterLayoutOps<D>, generics = "D")]
 #[delegate(OrderedLayoutOps)]
-pub struct DataLayout2_0(
-    pub AnyOrderedLayout<MaybeTot, OptionalKwFamily, OptionalValue<UintXform>>,
-);
+pub struct DataLayout2_0(pub AnyOrderedLayout<MaybeTot, MaybeFamily, MaybeValue<UintXform>>);
 
 /// All possible byte layouts for the DATA segment in 2.0.
 #[derive(Clone, Serialize, From, Delegate)]
 #[delegate(LayoutOps<'a, T>, generics = "'a, T")]
 #[delegate(InterLayoutOps<D>, generics = "D")]
 #[delegate(OrderedLayoutOps)]
-pub struct DataLayout3_0(pub AnyOrderedLayout<KnownTot, IdentityFamily, Identity<UintXform>>);
+pub struct DataLayout3_0(pub AnyOrderedLayout<KnownTot, AlwaysFamily, AlwaysValue<UintXform>>);
 
 /// All possible byte layouts for the DATA segment in 3.1.
 ///
@@ -115,7 +114,7 @@ pub struct DataLayout3_0(pub AnyOrderedLayout<KnownTot, IdentityFamily, Identity
 #[delegate(LayoutOps<'a, T>, generics = "'a, T")]
 #[delegate(InterLayoutOps<D>, generics = "D")]
 #[delegate(EndianLayoutOps)]
-pub struct DataLayout3_1(pub NonMixedEndianLayout<NoMeasDatatype>);
+pub struct DataLayout3_1(pub NonMixedEndianLayout<NullMeasDatatype>);
 
 /// All possible byte layouts for the DATA segment in 3.2.
 ///
@@ -125,8 +124,8 @@ pub struct DataLayout3_1(pub NonMixedEndianLayout<NoMeasDatatype>);
 #[delegate(LayoutOps<'a, T>, generics = "'a, T")]
 #[delegate(EndianLayoutOps)]
 pub enum DataLayout3_2 {
-    Mixed(EndianLayout<NullMixedType, HasMeasDatatype>),
-    NonMixed(NonMixedEndianLayout<HasMeasDatatype>),
+    Mixed(EndianLayout<NullMixedType, MaybeValue<NumType>>),
+    NonMixed(NonMixedEndianLayout<MaybeValue<NumType>>),
 }
 
 /// All possible byte layouts for the DATA segment in 2.0 and 3.0.
@@ -138,7 +137,7 @@ pub enum DataLayout3_2 {
 #[delegate(InterLayoutOps<DT>, generics = "DT")]
 #[delegate(OrderedLayoutOps)]
 pub enum AnyOrderedLayout<T, XW, X> {
-    Ascii(AnyAsciiLayout<T, NoMeasDatatype, true>),
+    Ascii(AnyAsciiLayout<T, NullMeasDatatype, true>),
     Integer(AnyOrderedUintLayout<T, XW, X>),
     F32(OrderedLayout<F32Type, T>),
     F64(OrderedLayout<F64Type, T>),
@@ -208,7 +207,7 @@ pub enum AnyOrderedUintLayout<T, XW, X> {
     Uint64(OrderedLayout<UintType64<XW, X>, T>),
 }
 
-type OrderedLayout<C, T> = FixedLayout<C, <C as HasNativeWidth>::Order, T, NoMeasDatatype>;
+type OrderedLayout<C, T> = FixedLayout<C, <C as HasNativeWidth>::Order, T, NullMeasDatatype>;
 
 /// The type of a non-delimited column in the DATA segment for 3.2
 pub enum MixedType<F: ColumnFamily> {
@@ -224,14 +223,14 @@ type WriterMixedType<'a> = MixedType<ColumnWriterFamily<'a>>;
 
 /// A big or little-endian integer column of some size (1-8 bytes)
 pub enum AnyBitmask<F: ColumnFamily> {
-    Uint08(NativeWrapper<F, UintType08<IdentityFamily, Identity<UintXform>>>),
-    Uint16(NativeWrapper<F, UintType16<IdentityFamily, Identity<UintXform>>>),
-    Uint24(NativeWrapper<F, UintType24<IdentityFamily, Identity<UintXform>>>),
-    Uint32(NativeWrapper<F, UintType32<IdentityFamily, Identity<UintXform>>>),
-    Uint40(NativeWrapper<F, UintType40<IdentityFamily, Identity<UintXform>>>),
-    Uint48(NativeWrapper<F, UintType48<IdentityFamily, Identity<UintXform>>>),
-    Uint56(NativeWrapper<F, UintType56<IdentityFamily, Identity<UintXform>>>),
-    Uint64(NativeWrapper<F, UintType64<IdentityFamily, Identity<UintXform>>>),
+    Uint08(NativeWrapper<F, UintType08<AlwaysFamily, AlwaysValue<UintXform>>>),
+    Uint16(NativeWrapper<F, UintType16<AlwaysFamily, AlwaysValue<UintXform>>>),
+    Uint24(NativeWrapper<F, UintType24<AlwaysFamily, AlwaysValue<UintXform>>>),
+    Uint32(NativeWrapper<F, UintType32<AlwaysFamily, AlwaysValue<UintXform>>>),
+    Uint40(NativeWrapper<F, UintType40<AlwaysFamily, AlwaysValue<UintXform>>>),
+    Uint48(NativeWrapper<F, UintType48<AlwaysFamily, AlwaysValue<UintXform>>>),
+    Uint56(NativeWrapper<F, UintType56<AlwaysFamily, AlwaysValue<UintXform>>>),
+    Uint64(NativeWrapper<F, UintType64<AlwaysFamily, AlwaysValue<UintXform>>>),
 }
 
 pub type AnyNullBitmask = AnyBitmask<ColumnNullFamily>;
@@ -266,9 +265,9 @@ pub struct UintType<T, const LEN: usize, W, X> {
 type WrappedUintType<T, const LEN: usize, W: MightHave> =
     UintType<T, LEN, W, W::Wrapper<UintXform>>;
 
-type OptionalUintType<T, const LEN: usize> = WrappedUintType<T, LEN, OptionalKwFamily>;
+type OptionalUintType<T, const LEN: usize> = WrappedUintType<T, LEN, MaybeFamily>;
 
-type IdentityUintType<T, const LEN: usize> = WrappedUintType<T, LEN, IdentityFamily>;
+type IdentityUintType<T, const LEN: usize> = WrappedUintType<T, LEN, AlwaysFamily>;
 
 pub type UintType08<W, X> = UintType<u8, 1, W, X>;
 pub type UintType16<W, X> = UintType<u16, 2, W, X>;
@@ -324,26 +323,29 @@ pub struct MaybeTot;
 #[derive(Clone, Serialize)]
 pub struct KnownTot;
 
-/// Marker type for layouts without $PnDATATYPE.
-#[derive(Clone, Serialize)]
-pub struct NoMeasDatatype;
-
-/// Marker type for layouts with $PnDATATYPE.
-#[derive(Clone, Serialize)]
-pub struct HasMeasDatatype;
-
 /// Marker type representing absence of column datatype.
+#[derive(Clone, Serialize)]
 pub struct NullMeasDatatype;
 
 /// A struct whose fields map 1-1 with keyword values in one data column
-pub struct ColumnLayoutValues<D> {
+struct ColumnLayoutValues<X, D> {
     width: Width,
     range: Range,
+    xform: X,
     datatype: D,
 }
 
-type ColumnLayoutValues2_0 = ColumnLayoutValues<NullMeasDatatype>;
-type ColumnLayoutValues3_2 = ColumnLayoutValues<Option<NumType>>;
+type ColumnLayoutValues2_0 = ColumnLayoutValues<XformValues2_0, NullMeasDatatype>;
+type ColumnLayoutValues3_0 = ColumnLayoutValues<XformValues3_0, NullMeasDatatype>;
+type ColumnLayoutValues3_2 = ColumnLayoutValues<XformValues3_0, Option<NumType>>;
+
+pub(crate) struct XformValues<S, G> {
+    scale: S,
+    gain: G,
+}
+
+type XformValues2_0 = XformValues<MaybeValue<Scale>, NeverValue<Gain>>;
+type XformValues3_0 = XformValues<AlwaysValue<Scale>, MaybeValue<Gain>>;
 
 /// A type which represents a column which may have associated data.
 ///
@@ -356,86 +358,22 @@ pub trait ColumnFamily {
 type NativeWrapper<F, C> =
     <F as ColumnFamily>::ColumnWrapper<C, <C as HasNativeType>::Native, Endian>;
 
-pub trait MeasDatatypeDef {
-    type MeasDatatype;
+pub trait LookupXform: Sized {
+    fn lookup(kws: &mut StdKeywords, i: MeasIndex) -> LookupTentative<Self, LookupKeysError>;
 
-    fn lookup_datatype(
-        kws: &mut StdKeywords,
-        i: MeasIndex,
-    ) -> LookupTentative<Self::MeasDatatype, LookupKeysError>;
-
-    fn lookup_datatype_ro(
+    fn lookup_ro(
         kws: &StdKeywords,
         i: MeasIndex,
-    ) -> Tentative<Self::MeasDatatype, ParseKeyError<NumTypeError>, RawParsedError>;
+    ) -> Tentative<Self, ParseKeyError<NumTypeError>, RawParsedError>;
+}
 
-    fn lookup_all(
-        kws: &mut StdKeywords,
-        par: Par,
-    ) -> LookupResult<Vec<ColumnLayoutValues<Self::MeasDatatype>>> {
-        (0..par.0)
-            .map(|i| Self::lookup_one(kws, i.into()))
-            .gather()
-            .map(Tentative::mconcat)
-            .map_err(DeferredFailure::mconcat)
-    }
+pub trait LookupDatatype: Sized {
+    fn lookup(kws: &mut StdKeywords, i: MeasIndex) -> LookupTentative<Self, LookupKeysError>;
 
-    fn lookup_ro_all(
-        kws: &StdKeywords,
-    ) -> DeferredResult<
-        Vec<ColumnLayoutValues<Self::MeasDatatype>>,
-        ParseKeyError<NumTypeError>,
-        RawParsedError,
-    > {
-        Par::get_metaroot_req(kws)
-            .into_deferred()
-            .def_and_maybe(|par| {
-                (0..par.0)
-                    .map(|i| Self::lookup_one_ro(kws, i.into()))
-                    .gather()
-                    .map(Tentative::mconcat)
-                    .map_err(DeferredFailure::mconcat)
-            })
-    }
-
-    fn lookup_one(
-        kws: &mut StdKeywords,
-        i: MeasIndex,
-    ) -> LookupResult<ColumnLayoutValues<Self::MeasDatatype>> {
-        let j = i.into();
-        let w = Width::lookup_req(kws, j);
-        let r = Range::lookup_req(kws, j);
-        w.def_zip(r).def_and_tentatively(|(width, range)| {
-            Self::lookup_datatype(kws, i).map(|datatype| ColumnLayoutValues {
-                width,
-                range,
-                datatype,
-            })
-        })
-    }
-
-    fn lookup_one_ro(
+    fn lookup_ro(
         kws: &StdKeywords,
         i: MeasIndex,
-    ) -> DeferredResult<
-        ColumnLayoutValues<Self::MeasDatatype>,
-        ParseKeyError<NumTypeError>,
-        RawParsedError,
-    > {
-        let j = i.into();
-        let w = Width::get_meas_req(kws, j).map_err(|e| e.into());
-        let r = Range::get_meas_req(kws, j).map_err(|e| e.into());
-        w.zip(r)
-            .map(Tentative::new1)
-            .map_err(DeferredFailure::new2)
-            .def_and_tentatively(|(width, range)| {
-                Self::lookup_datatype_ro(kws, i).map(|datatype| ColumnLayoutValues {
-                    width,
-                    range,
-                    datatype,
-                })
-            })
-    }
+    ) -> Tentative<Self, ParseKeyError<NumTypeError>, RawParsedError>;
 }
 
 /// Methods for a type which may or may not have $TOT
@@ -523,17 +461,39 @@ pub trait InterLayoutOps<D> {
 
     fn opt_meas_keywords(&self) -> NonEmpty<Vec<(String, Option<String>)>>;
 
-    // no need to check since this will be done after validating that the index
-    // is within the measurement vector, which has its own check and should
-    // always be the same length
+    /// Insert a column at some position in the layout.
+    ///
+    /// Panic if `index` is not a valid insertion index. It is assumed the index
+    /// supplied will have already been checked against the measurement vector.
+    ///
+    /// Column will be made from `range` and `xform` depending on the column
+    /// type. If these cannot be used to make the type, these will be coerced
+    /// into the the nearest-useful value and a warning will be emitted. The
+    /// will be become errors for `range` and `xform` if `no_coerce_range` and
+    /// `no_coerce_xform` are `true` respectively.
     fn insert_nocheck(
         &mut self,
         index: MeasIndex,
         range: Range,
-        notrunc: bool,
+        xform: Option<UintXform>,
+        no_coerce_range: bool,
+        no_coerce_xform: bool,
     ) -> BiTentative<(), AnyRangeError>;
 
-    fn push(&mut self, range: Range, notrunc: bool) -> BiTentative<(), AnyRangeError>;
+    /// Insert a column at the end of the layout.
+    ///
+    /// Column will be made from `range` and `xform` depending on the column
+    /// type. If these cannot be used to make the type, these will be coerced
+    /// into the the nearest-useful value and a warning will be emitted. The
+    /// will be become errors for `range` and `xform` if `no_coerce_range` and
+    /// `no_coerce_xform` are `true` respectively.
+    fn push(
+        &mut self,
+        range: Range,
+        xform: Option<UintXform>,
+        no_coerce_range: bool,
+        no_coerce_xform: bool,
+    ) -> BiTentative<(), AnyRangeError>;
 }
 
 /// Standardized operations on layouts
@@ -555,10 +515,11 @@ pub trait EndianLayoutOps: Sized {
 /// A version-specific data layout
 pub trait VersionedDataLayout
 where
-    for<'a> Self: Sized + LayoutOps<'a, Self::TotDef> + InterLayoutOps<Self::MeasDTDef>,
+    for<'a> Self: Sized + LayoutOps<'a, Self::TotDef> + InterLayoutOps<Self::MeasDatatype>,
 {
     type ByteLayout;
-    type MeasDTDef: MeasDatatypeDef;
+    type MeasDatatype: LookupDatatype;
+    type Xform: LookupXform;
     type TotDef: TotDefinition;
 
     fn lookup(
@@ -572,7 +533,7 @@ where
     fn try_new(
         dt: AlphaNumType,
         size: Self::ByteLayout,
-        columns: NonEmpty<ColumnLayoutValues<<Self::MeasDTDef as MeasDatatypeDef>::MeasDatatype>>,
+        columns: NonEmpty<ColumnLayoutValues<Self::Xform, Self::MeasDatatype>>,
         conf: &StdTextReadConfig,
     ) -> DeferredResult<Self, ColumnError<NewMixedTypeWarning>, NewDataLayoutError>;
 
@@ -637,10 +598,21 @@ pub trait HasDatatype: Sized {
     fn datatype_from_columns(cs: &NonEmpty<Self>) -> AlphaNumType;
 }
 
-trait FromRange: Sized {
+/// Means to make a column type from just a range and maybe scale transform.
+///
+/// This is (primary) meant to underpin the interface for inserting and pushing
+/// new columns which require a common interface. Each column is different
+/// enough that normally it is not worth resorting to a generic method for
+/// dealing with ranges and scale transforms (or lack thereof).
+trait FromRangeAndXform: Sized {
     type Error;
 
-    fn from_range(range: Range, notrunc: bool) -> BiTentative<Self, Self::Error>;
+    fn from_range_and_xform(
+        range: Range,
+        xform: Option<UintXform>,
+        no_coerce_range: bool,
+        no_coerce_xform: bool,
+    ) -> BiTentative<Self, Self::Error>;
 }
 
 /// A type which has a width that may vary
@@ -949,33 +921,33 @@ impl_null_layout!(
 
 macro_rules! impl_any_uint {
     ($var:ident, $uinttype:ident) => {
-        impl From<$uinttype<IdentityFamily, Identity<UintXform>>> for AnyNullBitmask {
-            fn from(value: $uinttype<IdentityFamily, Identity<UintXform>>) -> Self {
+        impl From<$uinttype<AlwaysFamily, AlwaysValue<UintXform>>> for AnyNullBitmask {
+            fn from(value: $uinttype<AlwaysFamily, AlwaysValue<UintXform>>) -> Self {
                 Self::$var(value)
             }
         }
 
-        impl From<UintColumnReader<$uinttype<IdentityFamily, Identity<UintXform>>>>
+        impl From<UintColumnReader<$uinttype<AlwaysFamily, AlwaysValue<UintXform>>>>
             for AnyReaderBitmask
         {
             fn from(
-                value: UintColumnReader<$uinttype<IdentityFamily, Identity<UintXform>>>,
+                value: UintColumnReader<$uinttype<AlwaysFamily, AlwaysValue<UintXform>>>,
             ) -> Self {
                 Self::$var(value)
             }
         }
 
-        impl<'a> From<UintColumnWriter<'a, $uinttype<IdentityFamily, Identity<UintXform>>>>
+        impl<'a> From<UintColumnWriter<'a, $uinttype<AlwaysFamily, AlwaysValue<UintXform>>>>
             for AnyWriterBitmask<'a>
         {
             fn from(
-                value: UintColumnWriter<'a, $uinttype<IdentityFamily, Identity<UintXform>>>,
+                value: UintColumnWriter<'a, $uinttype<AlwaysFamily, AlwaysValue<UintXform>>>,
             ) -> Self {
                 Self::$var(value)
             }
         }
 
-        impl TryFrom<AnyNullBitmask> for $uinttype<IdentityFamily, Identity<UintXform>> {
+        impl TryFrom<AnyNullBitmask> for $uinttype<AlwaysFamily, AlwaysValue<UintXform>> {
             type Error = UintToUintError;
             fn try_from(value: AnyNullBitmask) -> Result<Self, Self::Error> {
                 let w = value.nbytes();
@@ -990,7 +962,7 @@ macro_rules! impl_any_uint {
             }
         }
 
-        impl TryFrom<NullMixedType> for $uinttype<IdentityFamily, Identity<UintXform>> {
+        impl TryFrom<NullMixedType> for $uinttype<AlwaysFamily, AlwaysValue<UintXform>> {
             type Error = MixedToOrderedUintError;
             fn try_from(value: NullMixedType) -> Result<Self, Self::Error> {
                 let w = value.nbytes();
@@ -1015,8 +987,8 @@ macro_rules! impl_any_uint {
             }
         }
 
-        impl From<$uinttype<IdentityFamily, Identity<UintXform>>> for NullMixedType {
-            fn from(value: $uinttype<IdentityFamily, Identity<UintXform>>) -> Self {
+        impl From<$uinttype<AlwaysFamily, AlwaysValue<UintXform>>> for NullMixedType {
+            fn from(value: $uinttype<AlwaysFamily, AlwaysValue<UintXform>>) -> Self {
                 MixedType::Uint(value.into())
             }
         }
@@ -1104,41 +1076,95 @@ impl<'a> From<ColumnWriter<'a, F64Type, f64, Endian>> for WriterMixedType<'a> {
     }
 }
 
-impl MeasDatatypeDef for NoMeasDatatype {
-    type MeasDatatype = NullMeasDatatype;
-
-    fn lookup_datatype(
-        _: &mut StdKeywords,
-        _: MeasIndex,
-    ) -> LookupTentative<Self::MeasDatatype, LookupKeysError> {
-        Tentative::new1(NullMeasDatatype)
+impl LookupDatatype for NullMeasDatatype {
+    fn lookup(_: &mut StdKeywords, _: MeasIndex) -> LookupTentative<Self, LookupKeysError> {
+        Tentative::new1(Self)
     }
 
-    fn lookup_datatype_ro(
+    fn lookup_ro(
         _: &StdKeywords,
         _: MeasIndex,
-    ) -> Tentative<Self::MeasDatatype, ParseKeyError<NumTypeError>, RawParsedError> {
-        Tentative::new1(NullMeasDatatype)
+    ) -> Tentative<Self, ParseKeyError<NumTypeError>, RawParsedError> {
+        Tentative::new1(Self)
     }
 }
 
-impl MeasDatatypeDef for HasMeasDatatype {
-    type MeasDatatype = Option<NumType>;
-
-    fn lookup_datatype(
-        kws: &mut StdKeywords,
-        i: MeasIndex,
-    ) -> LookupTentative<Self::MeasDatatype, LookupKeysError> {
-        NumType::lookup_opt(kws, i.into()).map(|x| x.0)
+impl LookupDatatype for MaybeValue<NumType> {
+    fn lookup(kws: &mut StdKeywords, i: MeasIndex) -> LookupTentative<Self, LookupKeysError> {
+        NumType::lookup_opt(kws, i.into())
     }
 
-    fn lookup_datatype_ro(
+    fn lookup_ro(
         kws: &StdKeywords,
         i: MeasIndex,
-    ) -> Tentative<Self::MeasDatatype, ParseKeyError<NumTypeError>, RawParsedError> {
-        NumType::get_meas_opt(kws, i.into())
-            .map(|x| x.0)
-            .map_or_else(|e| Tentative::new(None, vec![e], vec![]), Tentative::new1)
+    ) -> Tentative<Self, ParseKeyError<NumTypeError>, RawParsedError> {
+        // TODO this can probably be generalized
+        NumType::get_meas_opt(kws, i.into()).map_or_else(
+            |e| Tentative::new(None.into(), vec![e], vec![]),
+            Tentative::new1,
+        )
+    }
+}
+
+impl<X: LookupXform, D: LookupDatatype> ColumnLayoutValues<X, D> {
+    fn lookup_all(kws: &mut StdKeywords, par: Par) -> LookupResult<Vec<Self>> {
+        (0..par.0)
+            .map(|i| Self::lookup_one(kws, i.into()))
+            .gather()
+            .map(Tentative::mconcat)
+            .map_err(DeferredFailure::mconcat)
+    }
+
+    fn lookup_ro_all(
+        kws: &StdKeywords,
+    ) -> DeferredResult<Vec<Self>, ParseKeyError<NumTypeError>, RawParsedError> {
+        Par::get_metaroot_req(kws)
+            .into_deferred()
+            .def_and_maybe(|par| {
+                (0..par.0)
+                    .map(|i| Self::lookup_one_ro(kws, i.into()))
+                    .gather()
+                    .map(Tentative::mconcat)
+                    .map_err(DeferredFailure::mconcat)
+            })
+    }
+
+    fn lookup_one(kws: &mut StdKeywords, i: MeasIndex) -> LookupResult<Self> {
+        let j = i.into();
+        let w = Width::lookup_req(kws, j);
+        let r = Range::lookup_req(kws, j);
+        w.def_zip(r).def_and_tentatively(|(width, range)| {
+            let x = X::lookup(kws, i).inner_into();
+            let d = D::lookup(kws, i).inner_into();
+            x.zip(d).map(|(xform, datatype)| Self {
+                width,
+                range,
+                xform,
+                datatype,
+            })
+        })
+    }
+
+    fn lookup_one_ro(
+        kws: &StdKeywords,
+        i: MeasIndex,
+    ) -> DeferredResult<Self, ParseKeyError<NumTypeError>, RawParsedError> {
+        let j = i.into();
+        let w = Width::get_meas_req(kws, j).map_err(|e| e.into());
+        let r = Range::get_meas_req(kws, j).map_err(|e| e.into());
+        w.zip(r)
+            .map(Tentative::new1)
+            .map_err(DeferredFailure::new2)
+            .def_and_tentatively(|(width, range)| {
+                let x = X::lookup_ro(kws, i).inner_into();
+                let d = D::lookup_ro(kws, i).inner_into();
+                x.zip(d).map(|(xform, datatype)| Self {
+                    width,
+                    range,
+                    xform,
+                    datatype,
+                })
+            })
     }
 }
 
@@ -1700,21 +1726,21 @@ impl<T, D, const ORD: bool> Serialize for DelimAsciiLayout<T, D, ORD> {
 
 impl<D> EndianLayout<AnyNullBitmask, D> {
     pub(crate) fn endian_uint_try_new(
-        cs: NonEmpty<ColumnLayoutValues<D::MeasDatatype>>,
+        cs: NonEmpty<ColumnLayoutValues<XformValues3_0, D>>,
         e: Endian,
         notrunc: bool,
     ) -> DeferredResult<Self, ColumnError<BitmaskError>, ColumnError<NewUintTypeError>>
     where
-        D: MeasDatatypeDef,
+        D: LookupDatatype,
     {
         FixedLayout::try_new(cs, e, |c| {
-            AnyBitmask::from_width_and_range(c.width, c.range, notrunc).def_errors_into()
+            AnyBitmask::from_keywords(c.width, c.range, c.xform, notrunc).def_errors_into()
         })
     }
 
     pub(crate) fn uint_try_into_ordered<T>(
         self,
-    ) -> LayoutConvertResult<AnyOrderedUintLayout<T, IdentityFamily, Identity<UintXform>>> {
+    ) -> LayoutConvertResult<AnyOrderedUintLayout<T, AlwaysFamily, AlwaysValue<UintXform>>> {
         let cs = self.columns;
         cs.head
             .try_into_one_size(cs.tail, self.byte_layout, 1)
@@ -1727,7 +1753,7 @@ impl<D> EndianLayout<NullMixedType, D> {
     pub(crate) fn try_into_ordered<T>(
         self,
     ) -> MultiResult<
-        AnyOrderedLayout<T, IdentityFamily, Identity<UintXform>>,
+        AnyOrderedLayout<T, AlwaysFamily, AlwaysValue<UintXform>>,
         MixedToOrderedLayoutError,
     > {
         let c0 = self.columns.head;
@@ -1779,7 +1805,7 @@ impl<D> EndianLayout<NullMixedType, D> {
 
     pub(crate) fn try_into_non_mixed(
         self,
-    ) -> MultiResult<NonMixedEndianLayout<NoMeasDatatype>, MixedToNonMixedLayoutError> {
+    ) -> MultiResult<NonMixedEndianLayout<NullMeasDatatype>, MixedToNonMixedLayoutError> {
         let c0 = self.columns.head;
         let it = self.columns.tail.into_iter().enumerate();
         let byte_layout = self.byte_layout;
@@ -1870,13 +1896,29 @@ impl IntFromBytes<6> for u64 {}
 impl IntFromBytes<7> for u64 {}
 impl IntFromBytes<8> for u64 {}
 
-impl<T, const LEN: usize, W: MightHave> UintType<T, LEN, W, W::Wrapper<UintXform>> {
+impl<T, const LEN: usize, W: MightHave> WrappedUintType<T, LEN, W> {
     fn new(range: Bitmask<T, LEN>, xform: W::Wrapper<UintXform>) -> Self {
         Self {
             range,
             xform,
             _wrapper: PhantomData,
         }
+    }
+
+    fn from_range(
+        range: Range,
+        xform: W::Wrapper<UintXform>,
+        no_coerce_range: bool,
+    ) -> BiTentative<Self, BitmaskError>
+    where
+        T: TryFrom<Range, Error = IntRangeError<T>> + PrimInt,
+        u64: From<T>,
+    {
+        range
+            .into_uint(no_coerce_range)
+            .inner_into()
+            .and_tentatively(|x| Bitmask::from_native_tnt(x, no_coerce_range).inner_into())
+            .map(|r| UintType::new(r, xform))
     }
 
     fn try_from_many<E, C>(
@@ -1909,7 +1951,7 @@ impl<T, const LEN: usize> IdentityUintType<T, LEN> {
         // TODO use arg for xform
         Self::new(
             Bitmask::from_u64(range).0,
-            Identity(UintXform::Lin(PositiveFloat::one())),
+            AlwaysValue(UintXform::Lin(PositiveFloat::one())),
         )
     }
 }
@@ -1922,23 +1964,25 @@ impl<T, const LEN: usize> FloatType<T, LEN> {
         }
     }
 
-    /// Make new float range from $PnB and $PnR values.
+    /// Make new float range from $PnB/$PnR/$PnE/$PnG values.
     ///
     /// Will return an error if $PnB is the incorrect size.
-    pub(crate) fn from_width_and_range(
+    pub(crate) fn from_keywords<S: MightHave, G: MightHave>(
         width: Width,
         range: Range,
-        notrunc: bool,
+        xform: XformValues<S::Wrapper<Scale>, G::Wrapper<Gain>>,
+        no_coerce_range: bool,
     ) -> DeferredResult<Self, FloatToDecimalError, FloatWidthError>
     where
         FloatDecimal<T>: TryFrom<BigDecimal, Error = FloatToDecimalError>,
         T: HasFloatBounds,
     {
+        // TODO check scale and gain
         Bytes::try_from(width)
             .into_deferred()
             .def_and_maybe(|bytes| {
                 if usize::from(u8::from(bytes)) == LEN {
-                    Ok(Self::from_range(range, notrunc).errors_into())
+                    Ok(Self::from_range(range, no_coerce_range).errors_into())
                 } else {
                     Err(DeferredFailure::new1(FloatWidthError::WrongWidth(
                         WrongFloatWidth {
@@ -1949,33 +1993,56 @@ impl<T, const LEN: usize> FloatType<T, LEN> {
                 }
             })
     }
+
+    fn from_range(range: Range, no_coerce_range: bool) -> BiTentative<Self, FloatToDecimalError>
+    where
+        FloatDecimal<T>: TryFrom<BigDecimal, Error = FloatToDecimalError>,
+        T: HasFloatBounds,
+    {
+        range.into_float(no_coerce_range).map(Self::new)
+    }
 }
 
-// TODO also check scale here?
 impl NullMixedType {
     /// Make a new mixed range from $PnB and $PnR, and $PnDATATYPE values
-    pub(crate) fn from_width_and_range(
+    pub(crate) fn from_keywords<S: MightHave, G: MightHave>(
         width: Width,
         range: Range,
+        xform: XformValues3_0,
         datatype: Option<NumType>,
-        notrunc: bool,
+        no_coerce_range: bool,
     ) -> DeferredResult<Self, NewMixedTypeWarning, NewMixedTypeError> {
         if let Some(dt) = datatype {
             match dt {
-                NumType::Integer => AnyBitmask::from_width_and_range(width, range, notrunc)
+                NumType::Integer => AnyBitmask::from_keywords(width, range, xform, no_coerce_range)
                     .def_map_value(Self::Uint)
                     .def_inner_into(),
-                NumType::Single => F32Type::from_width_and_range(width, range, notrunc)
-                    .def_map_value(Self::F32)
-                    .def_inner_into(),
-                NumType::Double => F64Type::from_width_and_range(width, range, notrunc)
-                    .def_map_value(Self::F64)
-                    .def_inner_into(),
+                NumType::Single => F32Type::from_keywords::<AlwaysFamily, MaybeFamily>(
+                    width,
+                    range,
+                    xform,
+                    no_coerce_range,
+                )
+                .def_map_value(Self::F32)
+                .def_inner_into(),
+                NumType::Double => F64Type::from_keywords::<AlwaysFamily, MaybeFamily>(
+                    width,
+                    range,
+                    xform,
+                    no_coerce_range,
+                )
+                .def_map_value(Self::F64)
+                .def_inner_into(),
             }
         } else {
-            AsciiRange::from_width_and_range(width, range, notrunc)
-                .def_map_value(Self::Ascii)
-                .def_inner_into()
+            AsciiRange::from_keywords::<AlwaysFamily, MaybeFamily>(
+                width,
+                range,
+                xform,
+                no_coerce_range,
+            )
+            .def_map_value(Self::Ascii)
+            .def_inner_into()
         }
     }
 
@@ -1994,28 +2061,36 @@ impl AnyNullBitmask {
     ///
     /// Will return an error if $PnB (in bits) cannot be converted into a width
     /// in bytes.
-    fn from_width_and_range(
+    fn from_keywords(
         width: Width,
         range: Range,
-        notrunc: bool,
+        xform: XformValues3_0,
+        no_coerce_range: bool,
     ) -> DeferredResult<Self, BitmaskError, NewUintTypeError> {
-        width
-            .try_into()
-            .into_deferred()
-            .def_and_tentatively(|bytes| Self::new1(bytes, range, notrunc).errors_into())
+        let w_res = width.try_into().into_deferred();
+        let x_res = xform.try_into().into_deferred();
+        w_res.def_zip(x_res).def_and_tentatively(|(bytes, xform)| {
+            Self::new1(bytes, range, xform, no_coerce_range).errors_into()
+        })
     }
 
     /// Make a new bitmask with a given width (in bytes) using a float/int.
-    fn new1(width: Bytes, range: Range, notrunc: bool) -> BiTentative<Self, BitmaskError> {
+    fn new1(
+        width: Bytes,
+        range: Range,
+        xform: UintXform,
+        no_coerce_range: bool,
+    ) -> BiTentative<Self, BitmaskError> {
+        let x = AlwaysValue(xform);
         match width {
-            Bytes::B1 => UintType08::from_range(range, notrunc).map(|b| b.into()),
-            Bytes::B2 => UintType16::from_range(range, notrunc).map(|b| b.into()),
-            Bytes::B3 => UintType24::from_range(range, notrunc).map(|b| b.into()),
-            Bytes::B4 => UintType32::from_range(range, notrunc).map(|b| b.into()),
-            Bytes::B5 => UintType40::from_range(range, notrunc).map(|b| b.into()),
-            Bytes::B6 => UintType48::from_range(range, notrunc).map(|b| b.into()),
-            Bytes::B7 => UintType56::from_range(range, notrunc).map(|b| b.into()),
-            Bytes::B8 => UintType64::from_range(range, notrunc).map(|b| b.into()),
+            Bytes::B1 => UintType08::from_range(range, x, no_coerce_range).map(|b| b.into()),
+            Bytes::B2 => UintType16::from_range(range, x, no_coerce_range).map(|b| b.into()),
+            Bytes::B3 => UintType24::from_range(range, x, no_coerce_range).map(|b| b.into()),
+            Bytes::B4 => UintType32::from_range(range, x, no_coerce_range).map(|b| b.into()),
+            Bytes::B5 => UintType40::from_range(range, x, no_coerce_range).map(|b| b.into()),
+            Bytes::B6 => UintType48::from_range(range, x, no_coerce_range).map(|b| b.into()),
+            Bytes::B7 => UintType56::from_range(range, x, no_coerce_range).map(|b| b.into()),
+            Bytes::B8 => UintType64::from_range(range, x, no_coerce_range).map(|b| b.into()),
         }
     }
 
@@ -2026,6 +2101,7 @@ impl AnyNullBitmask {
     pub fn from_u64(range: u64) -> Self {
         // ASSUME these will never truncate because we check the width first
         match Bytes::from_u64(range) {
+            // TODO xform?
             Bytes::B1 => Self::Uint08(UintType::from_u64(range)),
             Bytes::B2 => Self::Uint16(UintType::from_u64(range)),
             Bytes::B3 => Self::Uint24(UintType::from_u64(range)),
@@ -2042,16 +2118,16 @@ impl AnyNullBitmask {
         tail: Vec<C>,
         endian: Endian,
         starting_index: usize,
-    ) -> MultiResult<AnyOrderedUintLayout<T, IdentityFamily, Identity<UintXform>>, (MeasIndex, E)>
+    ) -> MultiResult<AnyOrderedUintLayout<T, AlwaysFamily, AlwaysValue<UintXform>>, (MeasIndex, E)>
     where
-        UintType08<IdentityFamily, Identity<UintXform>>: TryFrom<C, Error = E>,
-        UintType16<IdentityFamily, Identity<UintXform>>: TryFrom<C, Error = E>,
-        UintType24<IdentityFamily, Identity<UintXform>>: TryFrom<C, Error = E>,
-        UintType32<IdentityFamily, Identity<UintXform>>: TryFrom<C, Error = E>,
-        UintType40<IdentityFamily, Identity<UintXform>>: TryFrom<C, Error = E>,
-        UintType48<IdentityFamily, Identity<UintXform>>: TryFrom<C, Error = E>,
-        UintType56<IdentityFamily, Identity<UintXform>>: TryFrom<C, Error = E>,
-        UintType64<IdentityFamily, Identity<UintXform>>: TryFrom<C, Error = E>,
+        UintType08<AlwaysFamily, AlwaysValue<UintXform>>: TryFrom<C, Error = E>,
+        UintType16<AlwaysFamily, AlwaysValue<UintXform>>: TryFrom<C, Error = E>,
+        UintType24<AlwaysFamily, AlwaysValue<UintXform>>: TryFrom<C, Error = E>,
+        UintType32<AlwaysFamily, AlwaysValue<UintXform>>: TryFrom<C, Error = E>,
+        UintType40<AlwaysFamily, AlwaysValue<UintXform>>: TryFrom<C, Error = E>,
+        UintType48<AlwaysFamily, AlwaysValue<UintXform>>: TryFrom<C, Error = E>,
+        UintType56<AlwaysFamily, AlwaysValue<UintXform>>: TryFrom<C, Error = E>,
+        UintType64<AlwaysFamily, AlwaysValue<UintXform>>: TryFrom<C, Error = E>,
     {
         match_any_uint!(self, Self, x, {
             UintType::try_from_many(tail, starting_index)
@@ -2069,15 +2145,65 @@ fn ascii_to_uint(buf: &[u8]) -> Result<u64, AsciiToUintError> {
     }
 }
 
-impl From<ColumnLayoutValues3_2> for ColumnLayoutValues2_0 {
-    fn from(value: ColumnLayoutValues3_2) -> Self {
-        Self {
-            width: value.width,
-            range: value.range,
-            datatype: NullMeasDatatype,
+impl TryFrom<XformValues2_0> for UintXform {
+    type Error = ();
+
+    /// Convert values for $PnE and $PnG to a scale transform (2.0)
+    ///
+    /// If scale is linear, return a linear transform with slope equal to 1.0.
+    ///
+    /// If scale is log, return a log transform with the parameters in $PnE.
+    ///
+    /// If scale is not given at all, return error.
+    ///
+    /// Note $PnG didn't exist in 2.0 so this function will not look for it.
+    fn try_from(value: XformValues2_0) -> Result<Self, Self::Error> {
+        value
+            .scale
+            .0
+            .map(|s| match s {
+                Scale::Linear => Self::Lin(PositiveFloat::one()),
+                Scale::Log(l) => Self::Log(l),
+            })
+            .ok_or(())
+    }
+}
+
+impl TryFrom<XformValues3_0> for UintXform {
+    type Error = ();
+
+    /// Convert values for $PnE and $PnG to a scale transform (3.0+)
+    ///
+    /// If scale is linear, return a linear transform with slope equal to $PnG
+    /// or 1.0 if $PnG not given.
+    ///
+    /// If scale is log, return a log transform with the parameters in $PnE.
+    /// Return error if $PnG is given and not 1.0.
+    fn try_from(value: XformValues3_0) -> Result<Self, Self::Error> {
+        match value.scale.0 {
+            Scale::Linear => Ok(Self::Lin(
+                value.gain.0.map(|g| g.0).unwrap_or(PositiveFloat::one()),
+            )),
+            Scale::Log(l) => {
+                if value.gain.0.is_some_and(|g| f32::from(g.0) != 1.0) {
+                    Err(())
+                } else {
+                    Ok(Self::Log(l))
+                }
+            }
         }
     }
 }
+
+// impl From<ColumnLayoutValues3_2> for ColumnLayoutValues2_0 {
+//     fn from(value: ColumnLayoutValues3_2) -> Self {
+//         Self {
+//             width: value.width,
+//             range: value.range,
+//             datatype: NullMeasDatatype,
+//         }
+//     }
+// }
 
 impl<T, D, const ORD: bool> LayoutOps<'_, T> for DelimAsciiLayout<T, D, ORD>
 where
@@ -2192,17 +2318,25 @@ impl<T, D, const ORD: bool> InterLayoutOps<D> for DelimAsciiLayout<T, D, ORD> {
         &mut self,
         index: MeasIndex,
         range: Range,
-        notrunc: bool,
+        xform: Option<UintXform>,
+        no_coerce_range: bool,
+        no_coerce_xform: bool,
     ) -> BiTentative<(), AnyRangeError> {
         range
-            .into_uint(notrunc)
+            .into_uint(no_coerce_range)
             .inner_into()
             .map(|r| self.ranges.insert(index.into(), r))
     }
 
-    fn push(&mut self, range: Range, notrunc: bool) -> BiTentative<(), AnyRangeError> {
+    fn push(
+        &mut self,
+        range: Range,
+        xform: Option<UintXform>,
+        no_coerce_range: bool,
+        no_coerce_xform: bool,
+    ) -> BiTentative<(), AnyRangeError> {
         range
-            .into_uint(notrunc)
+            .into_uint(no_coerce_range)
             .inner_into()
             .map(|r| self.ranges.push(r))
     }
@@ -2363,14 +2497,14 @@ fn h_read_delim_without_rows<R: Read>(
 
 impl<'a, C, S, T, D> LayoutOps<'a, T> for FixedLayout<C, S, T, D>
 where
-    D: MeasDatatypeDef,
+    D: LookupDatatype,
     T: TotDefinition,
-    C: Clone + IsFixed + HasDatatype + IntoReader<S> + IntoWriter<'a, S> + FromRange,
+    C: Clone + IsFixed + HasDatatype + IntoReader<S> + IntoWriter<'a, S> + FromRangeAndXform,
     S: Copy + HasByteOrd,
     for<'c> Range: From<&'c C>,
     <C as IntoReader<S>>::Target: Readable<S>,
     <C as IntoWriter<'a, S>>::Target: Writable<'a, S>,
-    AnyRangeError: From<<C as FromRange>::Error>,
+    AnyRangeError: From<<C as FromRangeAndXform>::Error>,
 {
     fn widths(&self) -> Vec<BitsOrChars> {
         self.columns.as_ref().map(|x| x.fixed_width()).into()
@@ -2477,12 +2611,12 @@ where
 impl<'a, C, S, T, D> InterLayoutOps<D> for FixedLayout<C, S, T, D>
 where
     T: TotDefinition,
-    C: Clone + IsFixed + HasDatatype + IntoReader<S> + IntoWriter<'a, S> + FromRange,
+    C: Clone + IsFixed + HasDatatype + IntoReader<S> + IntoWriter<'a, S> + FromRangeAndXform,
     S: Copy + HasByteOrd,
     for<'c> Range: From<&'c C>,
     <C as IntoReader<S>>::Target: Readable<S>,
     <C as IntoWriter<'a, S>>::Target: Writable<'a, S>,
-    AnyRangeError: From<<C as FromRange>::Error>,
+    AnyRangeError: From<<C as FromRangeAndXform>::Error>,
 {
     fn opt_meas_headers(&self) -> Vec<MeasHeader> {
         vec![]
@@ -2496,15 +2630,23 @@ where
         &mut self,
         index: MeasIndex,
         range: Range,
-        notrunc: bool,
+        xform: Option<UintXform>,
+        no_coerce_range: bool,
+        no_coerce_xform: bool,
     ) -> BiTentative<(), AnyRangeError> {
-        C::from_range(range, notrunc)
+        C::from_range_and_xform(range, xform, no_coerce_range, no_coerce_xform)
             .inner_into()
             .map(|col| self.insert_column(index, col))
     }
 
-    fn push(&mut self, range: Range, notrunc: bool) -> BiTentative<(), AnyRangeError> {
-        C::from_range(range, notrunc)
+    fn push(
+        &mut self,
+        range: Range,
+        xform: Option<UintXform>,
+        no_coerce_range: bool,
+        no_coerce_xform: bool,
+    ) -> BiTentative<(), AnyRangeError> {
+        C::from_range_and_xform(range, xform, no_coerce_range, no_coerce_xform)
             .inner_into()
             .map(|col| self.push_column(col))
     }
@@ -2546,7 +2688,7 @@ impl<C, S, T, D> FixedLayout<C, S, T, D> {
         new_col_f: F,
     ) -> DeferredResult<Self, W, E>
     where
-        D: MeasDatatypeDef,
+        D: LookupDatatype,
         W: From<ColumnError<CW>>,
         E: From<ColumnError<CE>>,
         F: Fn(ColumnLayoutValues<D::MeasDatatype>) -> DeferredResult<C, CW, CE>,
@@ -2672,52 +2814,60 @@ impl<C, S, T, D> FixedLayout<C, S, T, D> {
     }
 }
 
-impl<C> EndianLayout<C, HasMeasDatatype> {
+impl<C> EndianLayout<C, MaybeValue<NumType>> {
     fn insert_mixed(
         mut self,
         index: MeasIndex,
         range: Range,
-        notrunc: bool,
+        xform: Option<UintXform>,
+        no_coerce_range: bool,
+        no_coerce_xform: bool,
     ) -> BiTentative<DataLayout3_2, AnyRangeError>
     where
         C: TryFrom<NullMixedType, Error = MixedToInnerError>,
         NullMixedType: From<C>,
-        NonMixedEndianLayout<HasMeasDatatype>: From<EndianLayout<C, HasMeasDatatype>>,
+        NonMixedEndianLayout<MaybeValue<NumType>>: From<EndianLayout<C, MaybeValue<NumType>>>,
     {
-        NullMixedType::from_range(range, notrunc).map(|col| match col.try_into() {
-            Ok(c) => {
-                self.insert_column(index, c);
-                DataLayout3_2::NonMixed(self.into())
-            }
-            Err(e) => {
-                let mut z = self.columns_into();
-                z.insert_column(index, e.src);
-                z.into()
-            }
-        })
+        NullMixedType::from_range_and_xform(range, xform, no_coerce_range, no_coerce_xform).map(
+            |col| match col.try_into() {
+                Ok(c) => {
+                    self.insert_column(index, c);
+                    DataLayout3_2::NonMixed(self.into())
+                }
+                Err(e) => {
+                    let mut z = self.columns_into();
+                    z.insert_column(index, e.src);
+                    z.into()
+                }
+            },
+        )
     }
 
     fn push_mixed(
         mut self,
         range: Range,
-        notrunc: bool,
+        xform: Option<UintXform>,
+        no_coerce_range: bool,
+        no_coerce_xform: bool,
     ) -> BiTentative<DataLayout3_2, AnyRangeError>
     where
         C: TryFrom<NullMixedType, Error = MixedToInnerError>,
         NullMixedType: From<C>,
         NonMixedEndianLayout<HasMeasDatatype>: From<EndianLayout<C, HasMeasDatatype>>,
     {
-        NullMixedType::from_range(range, notrunc).map(|col| match col.try_into() {
-            Ok(c) => {
-                self.push_column(c);
-                DataLayout3_2::NonMixed(self.into())
-            }
-            Err(e) => {
-                let mut z = self.columns_into();
-                z.push_column(e.src);
-                z.into()
-            }
-        })
+        NullMixedType::from_range_and_xform(range, xform, no_coerce_range, no_coerce_xform).map(
+            |col| match col.try_into() {
+                Ok(c) => {
+                    self.push_column(c);
+                    DataLayout3_2::NonMixed(self.into())
+                }
+                Err(e) => {
+                    let mut z = self.columns_into();
+                    z.push_column(e.src);
+                    z.into()
+                }
+            },
+        )
     }
 }
 
@@ -2811,60 +2961,80 @@ impl HasDatatype for NullMixedType {
     }
 }
 
-impl<T, const LEN: usize, XW, X> FromRange for UintType<T, LEN, XW, X>
+impl<T, const LEN: usize, W: MightHave> FromRangeAndXform
+    for UintType<T, LEN, W, W::Wrapper<UintXform>>
 where
     T: TryFrom<Range, Error = IntRangeError<T>> + PrimInt,
     u64: From<T>,
 {
     type Error = BitmaskError;
 
-    // TODO this is wrong
-    fn from_range(range: Range, notrunc: bool) -> BiTentative<Self, Self::Error> {
-        range.into_uint(notrunc).inner_into().and_tentatively(|x| {
-            Bitmask::from_native_tnt(x, notrunc).inner_into().map(|r| {
-                // TODO make default method for xform
-                UintType::new(r, UintXform::Lin(PositiveFloat::one()))
-            })
-        })
+    fn from_range_and_xform(
+        range: Range,
+        xform: Option<UintXform>,
+        no_coerce_range: bool,
+        no_coerce_xform: bool,
+    ) -> BiTentative<Self, Self::Error> {
+        // TODO throw error if xform is None
+        // TODO make default method for xform
+        let x = W::wrap(xform.unwrap_or(UintXform::Lin(PositiveFloat::one())));
+        UintType::from_range(range, x, no_coerce_range)
     }
 }
 
-impl<T, const LEN: usize> FromRange for FloatType<T, LEN>
+impl<T, const LEN: usize> FromRangeAndXform for FloatType<T, LEN>
 where
     T: HasFloatBounds,
 {
     type Error = FloatToDecimalError;
 
-    fn from_range(range: Range, notrunc: bool) -> BiTentative<Self, Self::Error> {
-        range.into_float(notrunc).map(Self::new)
+    fn from_range_and_xform(
+        range: Range,
+        xform: Option<UintXform>,
+        no_coerce_range: bool,
+        no_coerce_xform: bool,
+    ) -> BiTentative<Self, Self::Error> {
+        range.into_float(no_coerce_range).map(Self::new)
     }
 }
 
-impl FromRange for AsciiRange {
+impl FromRangeAndXform for AsciiRange {
     type Error = IntRangeError<()>;
 
     /// Make new AsciiRange from a float or integer.
     ///
     /// The number of chars will be automatically selected as the minimum
     /// required to express the range.
-    fn from_range(range: Range, notrunc: bool) -> BiTentative<Self, Self::Error> {
-        range.into_uint::<u64>(notrunc).map(AsciiRange::from)
+    fn from_range_and_xform(
+        range: Range,
+        xform: Option<UintXform>,
+        no_coerce_range: bool,
+        no_coerce_xform: bool,
+    ) -> BiTentative<Self, Self::Error> {
+        range
+            .into_uint::<u64>(no_coerce_range)
+            .map(AsciiRange::from)
     }
 }
 
-impl FromRange for AnyNullBitmask {
+impl FromRangeAndXform for AnyNullBitmask {
     type Error = IntRangeError<()>;
 
     /// make a new bitmask from a float or integer.
     ///
     /// The size will be determined by the input and will be kept as small as
     /// possible.
-    fn from_range(range: Range, notrunc: bool) -> BiTentative<Self, Self::Error> {
-        range.into_uint(notrunc).map(Self::from_u64)
+    fn from_range_and_xform(
+        range: Range,
+        xform: Option<UintXform>,
+        no_coerce_range: bool,
+        no_coerce_xform: bool,
+    ) -> BiTentative<Self, Self::Error> {
+        range.into_uint(no_coerce_range).map(Self::from_u64)
     }
 }
 
-impl FromRange for NullMixedType {
+impl FromRangeAndXform for NullMixedType {
     type Error = AnyRangeError;
 
     /// Create a mixed type based on the range.
@@ -2874,9 +3044,14 @@ impl FromRange for NullMixedType {
     /// otherwise use f32 (note that precision is not taken into consideration).
     ///
     /// ASCII will never be returned. This method will never fail.
-    fn from_range(range: Range, notrunc: bool) -> BiTentative<Self, Self::Error> {
+    fn from_range_and_xform(
+        range: Range,
+        xform: Option<UintXform>,
+        no_coerce_range: bool,
+        no_coerce_xform: bool,
+    ) -> BiTentative<Self, Self::Error> {
         if range.0.is_integer() {
-            AnyBitmask::from_range(range, notrunc)
+            AnyBitmask::from_range_and_xform(range, xform, no_coerce_range, no_coerce_xform)
                 .map(Self::Uint)
                 .inner_into()
         } else {
@@ -2897,7 +3072,8 @@ impl FromRange for NullMixedType {
                     },
                     |x| (x, None),
                 );
-            BiTentative::new_either1(x, e, notrunc).inner_into()
+            // TODO also check xform value
+            BiTentative::new_either1(x, e, no_coerce_range).inner_into()
         }
     }
 }
@@ -3087,7 +3263,7 @@ impl<T, W: MightHave> AnyOrderedUintLayout<T, W, W::Wrapper<UintXform>> {
                     // NOTE at this point $PnB doesn't matter, so assume we
                     // either ignored $PnB by way of $BYTEORD or checked to make
                     // sure they match.
-                    Ok(UintType::from_range(c.range, notrunc).errors_into())
+                    Ok(UintType::from_range_and_xform(c.range, notrunc).errors_into())
                 })
                 .def_map_value(|x| x.into())
             })
@@ -3095,7 +3271,7 @@ impl<T, W: MightHave> AnyOrderedUintLayout<T, W, W::Wrapper<UintXform>> {
     }
 }
 
-impl<T> AnyOrderedUintLayout<T, IdentityFamily, Identity<UintXform>> {
+impl<T> AnyOrderedUintLayout<T, AlwaysFamily, AlwaysValue<UintXform>> {
     // TODO need to try-convert the xform into an identity
     fn into_endian<D>(self) -> Result<EndianLayout<AnyNullBitmask, D>, OrderedToEndianError> {
         match_any_uint!(self, Self, l, {
@@ -3135,7 +3311,7 @@ impl<T, D, const ORD: bool> AnyAsciiLayout<T, D, ORD> {
         ColumnError<ascii_range::NewAsciiRangeError>,
     >
     where
-        D: MeasDatatypeDef,
+        D: LookupDatatype,
     {
         let go = |error: IntRangeError<()>, i: usize| ColumnError {
             error,
@@ -3154,7 +3330,7 @@ impl<T, D, const ORD: bool> AnyAsciiLayout<T, D, ORD> {
             Ok(ret)
         } else {
             FixedLayout::try_new(cs, NoByteOrd, |c| {
-                AsciiRange::from_width_and_range(c.width, c.range, notrunc)
+                AsciiRange::from_keywords(c.width, c.range, notrunc)
             })
             .def_map_value(Self::Fixed)
         }
@@ -3171,7 +3347,8 @@ impl<T, D, const ORD: bool> AnyAsciiLayout<T, D, ORD> {
 
 impl VersionedDataLayout for DataLayout2_0 {
     type ByteLayout = ByteOrd2_0;
-    type MeasDTDef = NoMeasDatatype;
+    type MeasDatatype = NullMeasDatatype;
+    type Xform = XformValues2_0;
     type TotDef = MaybeTot;
 
     fn lookup(
@@ -3189,7 +3366,7 @@ impl VersionedDataLayout for DataLayout2_0 {
     fn try_new(
         datatype: AlphaNumType,
         byteord: Self::ByteLayout,
-        columns: NonEmpty<ColumnLayoutValues<<Self::MeasDTDef as MeasDatatypeDef>::MeasDatatype>>,
+        columns: NonEmpty<ColumnLayoutValues<<Self::MeasDatatype as LookupDatatype>::MeasDatatype>>,
         conf: &StdTextReadConfig,
     ) -> DeferredResult<Self, ColumnError<NewMixedTypeWarning>, NewDataLayoutError> {
         AnyOrderedLayout::try_new(datatype, byteord, columns, conf)
@@ -3200,7 +3377,8 @@ impl VersionedDataLayout for DataLayout2_0 {
 
 impl VersionedDataLayout for DataLayout3_0 {
     type ByteLayout = ByteOrd2_0;
-    type MeasDTDef = NoMeasDatatype;
+    type MeasDatatype = NullMeasDatatype;
+    type Xform = XformValues3_0;
     type TotDef = KnownTot;
 
     fn lookup(
@@ -3218,7 +3396,7 @@ impl VersionedDataLayout for DataLayout3_0 {
     fn try_new(
         datatype: AlphaNumType,
         byteord: Self::ByteLayout,
-        columns: NonEmpty<ColumnLayoutValues<NullMeasDatatype>>,
+        columns: NonEmpty<ColumnLayoutValues3_0>,
         conf: &StdTextReadConfig,
     ) -> DeferredResult<Self, ColumnError<NewMixedTypeWarning>, NewDataLayoutError> {
         AnyOrderedLayout::try_new(datatype, byteord, columns, conf)
@@ -3229,7 +3407,8 @@ impl VersionedDataLayout for DataLayout3_0 {
 
 impl VersionedDataLayout for DataLayout3_1 {
     type ByteLayout = Endian;
-    type MeasDTDef = NoMeasDatatype;
+    type MeasDatatype = NullMeasDatatype;
+    type Xform = XformValues3_0;
     type TotDef = KnownTot;
 
     fn lookup(
@@ -3247,7 +3426,7 @@ impl VersionedDataLayout for DataLayout3_1 {
     fn try_new(
         datatype: AlphaNumType,
         endian: Self::ByteLayout,
-        columns: NonEmpty<ColumnLayoutValues<NullMeasDatatype>>,
+        columns: NonEmpty<ColumnLayoutValues3_0>,
         conf: &StdTextReadConfig,
     ) -> DeferredResult<Self, ColumnError<NewMixedTypeWarning>, NewDataLayoutError> {
         NonMixedEndianLayout::try_new(datatype, endian, columns, conf)
@@ -3258,7 +3437,8 @@ impl VersionedDataLayout for DataLayout3_1 {
 
 impl VersionedDataLayout for DataLayout3_2 {
     type ByteLayout = ByteOrd3_1;
-    type MeasDTDef = HasMeasDatatype;
+    type MeasDatatype = MaybeValue<NumType>;
+    type Xform = XformValues3_0;
     type TotDef = KnownTot;
 
     fn lookup(
@@ -3299,7 +3479,7 @@ impl VersionedDataLayout for DataLayout3_2 {
     fn try_new(
         datatype: AlphaNumType,
         endian: Self::ByteLayout,
-        cs: NonEmpty<ColumnLayoutValues<Option<NumType>>>,
+        cs: NonEmpty<ColumnLayoutValues3_2>,
         conf: &StdTextReadConfig,
     ) -> DeferredResult<Self, ColumnError<NewMixedTypeWarning>, NewDataLayoutError> {
         let notrunc = conf.disallow_range_truncation;
@@ -3320,7 +3500,7 @@ impl VersionedDataLayout for DataLayout3_2 {
                     .def_map_warnings(|e| e.inner_into())
             }
             _ => FixedLayout::try_new(cs, endian.0, |c| {
-                MixedType::from_width_and_range(c.width, c.range, c.datatype, notrunc)
+                MixedType::from_keywords(c.width, c.range, c.scale, c.range, c.datatype, notrunc)
             })
             .def_map_value(Self::Mixed),
         }
@@ -3351,12 +3531,14 @@ impl InterLayoutOps<HasMeasDatatype> for DataLayout3_2 {
         &mut self,
         index: MeasIndex,
         range: Range,
-        notrunc: bool,
+        xform: Option<UintXform>,
+        no_coerce_range: bool,
+        no_coerce_xform: bool,
     ) -> BiTentative<(), AnyRangeError> {
         match mem::replace(self, Self::mixed_dummy()) {
             // If layout is mixed, interpret range as a mixed type
             Self::Mixed(mut x) => x
-                .insert_nocheck(index, range, notrunc)
+                .insert_nocheck(index, range, xform, no_coerce_range, no_coerce_xform)
                 .map(|_| Self::Mixed(x)),
             // If layout is non-mixed, interpret range as an ASCII range and
             // keep the layout as ASCII. Otherwise, interpret as a mixed range
@@ -3364,11 +3546,17 @@ impl InterLayoutOps<HasMeasDatatype> for DataLayout3_2 {
             // result is different from the rest of the types in the layout.
             Self::NonMixed(x) => match x {
                 NonMixedEndianLayout::Ascii(mut y) => y
-                    .insert_nocheck(index, range, notrunc)
+                    .insert_nocheck(index, range, xform, no_coerce_range, no_coerce_xform)
                     .map(|_| Self::NonMixed(y.into())),
-                NonMixedEndianLayout::Integer(y) => y.insert_mixed(index, range, notrunc),
-                NonMixedEndianLayout::F32(y) => y.insert_mixed(index, range, notrunc),
-                NonMixedEndianLayout::F64(y) => y.insert_mixed(index, range, notrunc),
+                NonMixedEndianLayout::Integer(y) => {
+                    y.insert_mixed(index, range, xform, no_coerce_range, no_coerce_xform)
+                }
+                NonMixedEndianLayout::F32(y) => {
+                    y.insert_mixed(index, range, xform, no_coerce_range, no_coerce_xform)
+                }
+                NonMixedEndianLayout::F64(y) => {
+                    y.insert_mixed(index, range, xform, no_coerce_range, no_coerce_xform)
+                }
             },
         }
         .map(|newself| {
@@ -3376,16 +3564,30 @@ impl InterLayoutOps<HasMeasDatatype> for DataLayout3_2 {
         })
     }
 
-    fn push(&mut self, range: Range, notrunc: bool) -> BiTentative<(), AnyRangeError> {
+    fn push(
+        &mut self,
+        range: Range,
+        xform: Option<UintXform>,
+        no_coerce_range: bool,
+        no_coerce_xform: bool,
+    ) -> BiTentative<(), AnyRangeError> {
         match mem::replace(self, Self::mixed_dummy()) {
-            Self::Mixed(mut x) => x.push(range, notrunc).map(|_| Self::Mixed(x)),
+            Self::Mixed(mut x) => x
+                .push(range, xform, no_coerce_range, no_coerce_xform)
+                .map(|_| Self::Mixed(x)),
             Self::NonMixed(x) => match x {
-                NonMixedEndianLayout::Ascii(mut y) => {
-                    y.push(range, notrunc).map(|_| Self::NonMixed(y.into()))
+                NonMixedEndianLayout::Ascii(mut y) => y
+                    .push(range, xform, no_coerce_range, no_coerce_xform)
+                    .map(|_| Self::NonMixed(y.into())),
+                NonMixedEndianLayout::Integer(y) => {
+                    y.push_mixed(range, xform, no_coerce_range, no_coerce_xform)
                 }
-                NonMixedEndianLayout::Integer(y) => y.push_mixed(range, notrunc),
-                NonMixedEndianLayout::F32(y) => y.push_mixed(range, notrunc),
-                NonMixedEndianLayout::F64(y) => y.push_mixed(range, notrunc),
+                NonMixedEndianLayout::F32(y) => {
+                    y.push_mixed(range, xform, no_coerce_range, no_coerce_xform)
+                }
+                NonMixedEndianLayout::F64(y) => {
+                    y.push_mixed(range, xform, no_coerce_range, no_coerce_xform)
+                }
             },
         }
         .map(|newself| {
@@ -3397,7 +3599,7 @@ impl InterLayoutOps<HasMeasDatatype> for DataLayout3_2 {
 impl DataLayout3_1 {
     pub(crate) fn into_ordered<T>(
         self,
-    ) -> LayoutConvertResult<AnyOrderedLayout<T, IdentityFamily, Identity<UintXform>>> {
+    ) -> LayoutConvertResult<AnyOrderedLayout<T, AlwaysFamily, AlwaysValue<UintXform>>> {
         self.0.into_ordered()
     }
 }
@@ -3405,7 +3607,7 @@ impl DataLayout3_1 {
 impl DataLayout3_2 {
     pub(crate) fn into_ordered<T>(
         self,
-    ) -> LayoutConvertResult<AnyOrderedLayout<T, IdentityFamily, Identity<UintXform>>> {
+    ) -> LayoutConvertResult<AnyOrderedLayout<T, AlwaysFamily, AlwaysValue<UintXform>>> {
         match self {
             Self::NonMixed(x) => x.into_ordered(),
             Self::Mixed(x) => x.try_into_ordered().mult_errors_into(),
@@ -3532,13 +3734,15 @@ impl<T, W: MightHave> AnyOrderedLayout<T, W, W::Wrapper<UintXform>> {
                 .def_inner_into(),
             AlphaNumType::Single => byteord.try_into().into_deferred().def_and_maybe(|b| {
                 FixedLayout::try_new(columns, b, |c| {
-                    F32Type::from_width_and_range(c.width, c.range, notrunc).def_warnings_into()
+                    F32Type::from_keywords(c.width, c.range, c.scale, c.gain, notrunc)
+                        .def_warnings_into()
                 })
                 .def_map_value(Self::F32)
             }),
             AlphaNumType::Double => byteord.try_into().into_deferred().def_and_maybe(|b| {
                 FixedLayout::try_new(columns, b, |c| {
-                    F64Type::from_width_and_range(c.width, c.range, notrunc).def_warnings_into()
+                    F64Type::from_keywords(c.width, c.range, c.scale, c.gain, notrunc)
+                        .def_warnings_into()
                 })
                 .def_map_value(Self::F64)
             }),
@@ -3552,7 +3756,7 @@ impl<T, W: MightHave> AnyOrderedLayout<T, W, W::Wrapper<UintXform>> {
     }
 }
 
-impl<T> AnyOrderedLayout<T, IdentityFamily, Identity<UintXform>> {
+impl<T> AnyOrderedLayout<T, AlwaysFamily, AlwaysValue<UintXform>> {
     fn into_unmixed<D>(self) -> LayoutConvertResult<NonMixedEndianLayout<D>> {
         match self {
             Self::Ascii(x) => Ok(x.phantom_into().into()),
@@ -3610,7 +3814,7 @@ impl NonMixedEndianLayout<NoMeasDatatype> {
     fn try_new(
         datatype: AlphaNumType,
         endian: Endian,
-        columns: NonEmpty<ColumnLayoutValues<NullMeasDatatype>>,
+        columns: NonEmpty<ColumnLayoutValues3_0>,
         conf: &StdTextReadConfig,
     ) -> DeferredResult<Self, ColumnError<NewMixedTypeWarning>, NewDataLayoutError> {
         let notrunc = conf.disallow_range_truncation;
@@ -3624,11 +3828,13 @@ impl NonMixedEndianLayout<NoMeasDatatype> {
                 .def_map_warnings(|e| e.inner_into())
                 .def_inner_into(),
             AlphaNumType::Single => FixedLayout::try_new(columns, endian, |c| {
-                F32Type::from_width_and_range(c.width, c.range, notrunc).def_warnings_into()
+                F32Type::from_keywords(c.width, c.range, c.scale, c.gain, notrunc)
+                    .def_warnings_into()
             })
             .def_map_value(Self::F32),
             AlphaNumType::Double => FixedLayout::try_new(columns, endian, |c| {
-                F64Type::from_width_and_range(c.width, c.range, notrunc).def_warnings_into()
+                F64Type::from_keywords(c.width, c.range, c.scale, c.gain, notrunc)
+                    .def_warnings_into()
             })
             .def_map_value(Self::F64),
         }
@@ -3658,7 +3864,7 @@ impl<D> NonMixedEndianLayout<D> {
 
     pub(crate) fn into_ordered<T>(
         self,
-    ) -> LayoutConvertResult<AnyOrderedLayout<T, IdentityFamily, Identity<UintXform>>> {
+    ) -> LayoutConvertResult<AnyOrderedLayout<T, AlwaysFamily, AlwaysValue<UintXform>>> {
         match self {
             Self::Ascii(x) => Ok(x.phantom_into().into()),
             Self::Integer(x) => x.uint_try_into_ordered().map(|i| i.into()),

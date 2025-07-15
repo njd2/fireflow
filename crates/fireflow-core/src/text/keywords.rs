@@ -1406,7 +1406,7 @@ impl GateScale {
         kws: &mut StdKeywords,
         i: GateIndex,
         conf: &StdTextReadConfig,
-    ) -> LookupTentative<OptionalValue<GateScale>, E> {
+    ) -> LookupTentative<MaybeValue<GateScale>, E> {
         Scale::lookup_fixed_opt(kws, usize::from(i).into(), conf).map(|x| x.map(GateScale))
     }
 
@@ -1414,7 +1414,7 @@ impl GateScale {
         kws: &mut StdKeywords,
         i: GateIndex,
         conf: &StdTextReadConfig,
-    ) -> LookupTentative<OptionalValue<GateScale>, DeprecatedError> {
+    ) -> LookupTentative<MaybeValue<GateScale>, DeprecatedError> {
         Scale::lookup_fixed_opt_dep(kws, usize::from(i).into(), conf).map(|x| x.map(GateScale))
     }
 }

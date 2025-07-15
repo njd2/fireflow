@@ -1,8 +1,11 @@
 //! Types representing $PnR/$PnB keys for an Ascii column.
 
+use crate::data::XformValues;
 use crate::error::{DeferredExt, DeferredResult, ResultExt};
 use crate::text::byteord::{Width, WidthToCharsError};
-use crate::text::keywords::{IntRangeError, Range};
+use crate::text::keywords::{Gain, IntRangeError, Range};
+use crate::text::optional::MightHave;
+use crate::text::scale::Scale;
 
 use derive_more::{Display, From, Into};
 use serde::Serialize;
@@ -70,16 +73,20 @@ impl AsciiRange {
     /// Make new AsciiRange from $PnB and $PnR values.
     ///
     /// Will return an error if $PnB is too small to hold $PnR.
-    pub(crate) fn from_width_and_range(
+    pub(crate) fn from_keywords<S: MightHave, G: MightHave>(
         width: Width,
         range: Range,
-        notrunc: bool,
+        xform: XformValues<S::Wrapper<Scale>, G::Wrapper<Gain>>,
+        no_coerce_range: bool,
     ) -> DeferredResult<Self, IntRangeError<()>, NewAsciiRangeError> {
+        // TODO error/warn if scale is Some(<not linear>) and/or gain is
+        // Some(<not 1.0>). Scale should only be none in 2.0 and gain will
+        // always be none in 2.0
         Chars::try_from(width)
             .into_deferred()
             .def_and_maybe(|chars| {
                 range
-                    .into_uint(notrunc)
+                    .into_uint(no_coerce_range)
                     .inner_into()
                     .and_maybe(|value| Self::try_new(value, chars).into_deferred())
             })
